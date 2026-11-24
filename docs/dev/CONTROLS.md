@@ -108,6 +108,15 @@ with a 2 px accent outline (`core/item_focus.inc`: `ItemFocus`, `PartStop`; `kit
 same keys). The outline shows only when the keyboard moved the focus, not after a click. Each new view with click areas
 of its own does the same: `View::tabbedTo`, `tabWithin`, `focusOnClick` (`apps/common/view.h`).
 
+The Terrain tool strip's Symmetry button includes Custom mirror axis and Custom symmetry point.
+Both open a number form for X and Y in pixels from the top-left corner of the map. The axis form
+also takes a clockwise angle from horizontal. Each mode shows its center on the map. The axis
+also shows the mirror line clipped to the map edges. The Select tool can drag the center.
+Each form has a Select on map button. Choose two different points to fill the axis fields, or one point to fill
+the center fields. After the first axis point, moving the pointer previews the line. The form reopens with
+the picked values. Esc or a right-click during the pick returns to the form with its previous entries.
+OK applies the displayed settings.
+
 ## The rail and the map pages
 
 The rail (`paintWsBar`) is down the left edge, under the tabs. At the top: the workspaces of the tab's mode (a

@@ -77,7 +77,7 @@ struct Rect {
 
 // Mirror modes applied to editing operations (map-pixel positions are mirrored; isometric
 // terrain stays valid because every result goes through the terrain correction engine).
-enum class Symmetry { None, Horizontal, Vertical, Both, Rotate180, Diagonal, AntiDiagonal, Rotate4 };
+enum class Symmetry { None, Horizontal, Vertical, Both, Rotate180, Diagonal, AntiDiagonal, Rotate4, CustomAxis, CustomPoint };
 
 // The Map Revealer unit (units.dat id 101; Edit > Tools > Place map revealers).
 constexpr uint16_t kMapRevealerUnit = 101;
@@ -85,7 +85,8 @@ constexpr uint16_t kMapRevealerUnit = 101;
 // (the group they make; at most kMaxSymmetricPlaces places). Left/right and top/bottom together are "both" (and so 180
 // too). The turns (feedback #111) are a number: the copies go round the map's middle in equal steps, 1 for none.
 namespace Mirror {
-constexpr int LeftRight = 1, TopBottom = 2, Diagonal = 4, AntiDiagonal = 8, All = 15;
+constexpr int LeftRight = 1, TopBottom = 2, Diagonal = 4, AntiDiagonal = 8, All = 15;  // the combinable preset axes
+constexpr int CustomAxis = 16, CustomPoint = 32, Custom = CustomAxis | CustomPoint;
 }
 constexpr int kMaxTurns = 64;
 constexpr size_t kMaxSymmetricPlaces = 1024;  // (64 brushes, each anchor: 8 brushes and 32 anchors paint 256 places)
@@ -249,6 +250,11 @@ public:
     std::pair<int, int> terrainCopyOrigin() const { return terrainCopyOrigin_; }  // (the corner the last copyTerrain's offsets are from)
     bool hasTerrainClipboard() const { return !terrainClip_.corners.empty(); }
     Rect terrainClipboardBox() const { return {0, 0, terrainClip_.width, terrainClip_.height}; }
+    struct TerrainPasteOrigin {
+        int x, y;  // ISOM corner coordinates
+        bool flipX, flipY;
+    };
+    std::vector<TerrainPasteOrigin> terrainPasteOrigins(int px, int py) const;
     // Turn the terrain clipboard a quarter turn clockwise as seen in the game (corner (x, y) goes to
     // (-y, x) around the origin: the diamond grid turns onto itself, so the terrain stays valid ISOM).
     // Units turn with it; doodads cannot (their tiles face one way) and are dropped. Returns how many
@@ -340,20 +346,25 @@ public:
     // --- Symmetry -------------------------------------------------------------------------------
     void setSymmetry(Symmetry s);
     Symmetry symmetry() const;
-    void setMirrors(int mask) { mirrors_ = mask & Mirror::All; }
+    // A custom axis or point gives one mirror image. The preset mirrors and turns combine with one another.
+    void setMirrors(int mask);
     int mirrors() const { return mirrors_; }
     // The turns: the number of positions, equally spaced round the map's middle (1: no turn, 2: a half turn, 4: quarter
     // turns, 3: a third of a turn...), 1 to kMaxTurns. With the mirrors, each turned copy is mirrored too.
-    void setTurns(int n) { turns_ = std::clamp(n, 1, kMaxTurns); }
+    void setTurns(int n) { turns_ = mirrors_ & Mirror::Custom ? 1 : std::clamp(n, 1, kMaxTurns); }
     int turns() const { return turns_; }
-    // The point that the mirrors and the turns go round, in pixels: the map's middle at first. setSymmetryCenter puts it
-    // on the nearest point of the diamonds' grid (x: 64 pixels, y: 32), so that the mirror images of the diamonds are
-    // diamonds; inside the map. A value below 0: the map's middle again.
+    // The active center, in map pixels. Presets snap it to the diamond grid (64 x 32). Custom modes share a separate
+    // pixel-accurate center. Both start in the map's middle. A negative coordinate restores the default.
     void setSymmetryCenter(int px, int py);
     std::pair<int, int> symmetryCenter() const;
-    // The same center as `other` has, as it is (a copy of the map paints as the map does; the default middle stays one).
-    void copySymmetryCenter(const Editor& other) { symmetryX_ = other.symmetryX_, symmetryY_ = other.symmetryY_, moreAnchors_ = other.moreAnchors_; }
-    std::pair<int, int> symmetryCenterSet() const { return {symmetryX_, symmetryY_}; }  // (as set: -1 for the map's middle)
+    void setCustomSymmetryCenter(int px, int py);
+    std::pair<int, int> customSymmetryCenter() const;
+    std::pair<int, int> customSymmetryCenterSet() const { return customCenter_; }
+    // Angle of the mirror line in map pixels, clockwise from horizontal, modulo 180 degrees.
+    void setCustomAxisAngle(double degrees);
+    double customAxisAngle() const { return customAxisAngle_; }
+    void copySymmetryCenter(const Editor& other);
+    std::pair<int, int> symmetryCenterSet() const { return mirrors_ & Mirror::Custom ? customCenter_ : presetCenter_; }
     // More anchors: anchor 0 is the main one (the center above), which the mouse is relative to and the mirrors and
     // turns go round; each other anchor repeats that whole pattern, moved by its offset from the main one. At most
     // kMaxSymmetricPlaces places in all; each anchor on the grid as it is.
@@ -992,7 +1003,8 @@ private:
     TileClip tileClip_;
     int mirrors_ = 0;  // Mirror:: flags
     int turns_ = 1;    // the turns (setTurns)
-    int symmetryX_ = -1, symmetryY_ = -1;  // setSymmetryCenter (-1: the map's middle)
+    std::pair<int, int> presetCenter_{-1, -1}, customCenter_{-1, -1};
+    double customAxisAngle_ = 0;
     std::vector<std::pair<int, int>> moreAnchors_;  // addSymmetryAnchor
     uint64_t loadMark_ = 0, openMark_ = 0;
     std::string openCheck_;
@@ -1006,6 +1018,7 @@ private:
     std::set<std::pair<int, int>> layerPlaced_;  // the tiles the last composeLayers placed from layers
     std::optional<std::pair<IsomGrid, TerrainLayer>> layerHeld_;  // composeLayers' hold
     std::pair<int, int> anchorOnGrid(int px, int py) const;
+    std::pair<int, int> centerOnMap(std::pair<int, int> center) const;
     int moreAnchorOf(int index) const;
     std::pair<int, int> anchorMiddle(int index) const;
     std::vector<uint16_t> terrainMask_, tileMask_;  // setTerrainMask, setTileMask

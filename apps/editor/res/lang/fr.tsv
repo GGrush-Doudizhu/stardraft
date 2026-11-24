@@ -3741,3 +3741,17 @@ brightest	le plus clair
 Keep recolor preview	Garder l'aperçu de la recoloration
 The map shows the recolor also when this window is closed	La carte montre la recoloration aussi quand cette fenêtre est fermée
 One stop, every value 1, time 0 (no change of the colors)	Un arrêt, toutes les valeurs à 1, durée 0 (couleurs inchangées)
+Custom mirror axis	Axe de symétrie personnalisé
+Custom symmetry point	Centre de symétrie personnalisé
+Angle from right	Depuis la droite
+° clockwise	° horaire
+Terrain symmetry: select a mirror, a custom axis or a custom point (Alt+0 to Alt+6)	Symétrie du terrain : choisissez un miroir, un axe personnalisé ou un centre personnalisé (Alt+0 à Alt+6)
+Custom mirror &axis…	&Axe de symétrie personnalisé…
+Custom symmetry &point…	Centre de symétrie &personnalisé…
+Select on map	Choisir sur la carte
+Click the first point on the mirror axis. Esc cancels.	Cliquez sur le premier point de l’axe de symétrie. Échap annule.
+Click a different point on the mirror axis. Esc cancels.	Cliquez sur un autre point de l’axe de symétrie. Échap annule.
+Click the symmetry point on the map. Esc cancels.	Cliquez sur le centre de symétrie sur la carte. Échap annule.
+Mirror axis set	Axe de symétrie défini
+Symmetry point set	Centre de symétrie défini
+Canceled symmetry placement	Placement de la symétrie annulé

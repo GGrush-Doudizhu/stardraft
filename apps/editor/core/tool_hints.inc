@@ -16,6 +16,7 @@ std::vector<KeyHint> mapKeyHints(const AppState& app) {
     std::vector<KeyHint> out;
     if (!app.ed || !app.ed->isOpen() || app.mode == Mode::Layers) return out;
     if (mapPeekOn(app)) return {{L"Release", L"Go to the place at the mouse"}};  // (the overview: core/map_input.inc)
+    if (app.symmetryPick) return {{L"Esc", L"Cancel"}, {L"Right-click", L"Cancel"}};
     const int tool = currentTool(app);
     auto add = [&](const wchar_t* keys, const wchar_t* what, unsigned mod = 0) {
         if (out.size() < 5) out.push_back({keys, what, mod});

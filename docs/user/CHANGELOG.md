@@ -2,6 +2,12 @@
 
 StarDraft 2 is a combined map editor and EUD editor for StarCraft: Remastered, for Windows, macOS and Linux.
 
+## Unreleased
+
+- Terrain symmetry can mirror a brush across a line at any angle or repeat it across a point.
+  Open the axis form (Alt+5) or the point form (Alt+6). Enter values or use Select on map to fill them,
+  then click OK to apply.
+
 ## 0.9.1.1
 
 ### Fixes

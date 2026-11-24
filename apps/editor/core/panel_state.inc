@@ -6,6 +6,7 @@
 // (PanelScope).
 
 void mapLayersDragStop();
+bool cancelSymmetryPick(AppState& app);
 struct PanelState {
     Mode mode = Mode::Units;
     int palette = -1;  // (AppState's)
@@ -18,6 +19,8 @@ struct PanelState {
     int density = 10;
     int mirrors = 0;                  // (the Editor's)
     int turns = 1;                    // (the Editor's: the number of positions, feedback #111)
+    std::pair<int, int> customCenter{-1, -1};  // map pixels; the map's middle until set
+    double customAxisAngle = 0;
     bool terrainRect = false;
     TilesView* tiles = nullptr;       // Terrain: its tiles, and the views that show them (its panel's)
     TilesGridView* tilesGrid = nullptr;
@@ -34,7 +37,11 @@ void panelStore(PanelState& s) {
     s.brushSize = a.brushSize, s.brushHeight = a.brushHeight, s.brushShape = a.brushShape;
     s.otherBrushSize = a.otherBrushSize, s.otherBrushHeight = a.otherBrushHeight, s.otherBrushShape = a.otherBrushShape;
     s.tool = a.toolByMode[int(s.mode)], s.density = a.sprayDensity, s.terrainRect = a.terrainRect;
-    if (a.ed) s.mirrors = a.ed->mirrors(), s.turns = a.ed->turns();
+    if (a.ed) {
+        s.mirrors = a.ed->mirrors(), s.turns = a.ed->turns();
+        s.customCenter = a.ed->customSymmetryCenterSet();
+        s.customAxisAngle = a.ed->customAxisAngle();
+    }
 }
 void panelLoad(const PanelState& s) {
     AppState& a = appState();
@@ -43,7 +50,11 @@ void panelLoad(const PanelState& s) {
     a.brushSize = s.brushSize, a.brushHeight = s.brushHeight, a.brushShape = s.brushShape;
     a.otherBrushSize = s.otherBrushSize, a.otherBrushHeight = s.otherBrushHeight, a.otherBrushShape = s.otherBrushShape;
     a.toolByMode[int(s.mode)] = s.tool, a.sprayDensity = s.density, a.terrainRect = s.terrainRect;
-    if (a.ed) a.ed->setMirrors(s.mirrors), a.ed->setTurns(s.turns);
+    if (a.ed) {
+        a.ed->setMirrors(s.mirrors), a.ed->setTurns(s.turns);
+        a.ed->setCustomSymmetryCenter(s.customCenter.first, s.customCenter.second);
+        a.ed->setCustomAxisAngle(s.customAxisAngle);
+    }
     if (s.tiles && s.tilesGrid && s.tilesPanel) gTiles = s.tiles, gTilesGrid = s.tilesGrid, gTilesPanel = s.tilesPanel;
 }
 // The panel's state as it is now (the active panel's is the app state's).
@@ -181,6 +192,7 @@ void activatePanel(PanelState* p) {
     // The selected units are Units mode's: they show in each mode, so they are let go when another mode starts.
     if (changed && app.mode == Mode::Units && app.ed) app.ed->clearSelection();
     if (p != gActivePanel) {
+        cancelSymmetryPick(app);
         // (another terrain kind in the same tab: it has its own Select shape, and the selection would change)
         const bool otherKind = gActivePanel && gActivePanel->mode == Mode::Terrain && p->mode == Mode::Terrain && app.terrainRect != p->terrainRect;
         if (gActivePanel) panelStore(*gActivePanel);
@@ -219,9 +231,9 @@ void panelsShowTab() {
 std::string panelStateText(PanelState& s) {
     panelFresh(s);
     char b[200];
-    std::snprintf(b, sizeof b, "%d\t%d\t%g\t%g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%g\t%g\t%d", int(s.mode), s.tool, s.brushSize, s.brushHeight, int(s.brushShape),
+    std::snprintf(b, sizeof b, "%d\t%d\t%g\t%g\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%g\t%g\t%d\t%d\t%d\t%.17g", int(s.mode), s.tool, s.brushSize, s.brushHeight, int(s.brushShape),
                   s.density, s.mirrors, !s.terrainRect ? 0 : !s.tiles ? 1 : s.tiles->stamps ? 2 : s.tiles->solid ? 3 : 1, s.owner, s.palette, -1, s.tiles ? s.tiles->picked : -1, s.otherBrushSize,
-                  s.otherBrushHeight, int(s.otherBrushShape));
+                  s.otherBrushHeight, int(s.otherBrushShape), s.customCenter.first, s.customCenter.second, s.customAxisAngle);
     return b;
 }
 // Back from the text (from part `at` of the line's tab-separated parts): false when it is not a state of mode `m`.
@@ -231,7 +243,7 @@ bool panelStateRead(PanelState& s, const std::vector<std::string>& part, size_t 
     s.mode = m, s.tool = std::max(0, num(1));
     s.brushSize = std::clamp(float(std::atof(part[at + 2].c_str())), 0.5f, 32.0f), s.brushHeight = std::clamp(float(std::atof(part[at + 3].c_str())), 0.0f, 32.0f);
     s.brushShape = Brush::Shape(std::clamp(num(4), 0, int(Brush::Circle)));
-    s.density = std::clamp(num(5), 1, kDensityMax), s.mirrors = num(6) & Mirror::All, s.terrainRect = num(7) != 0;
+    s.density = std::clamp(num(5), 1, kDensityMax), s.mirrors = num(6) & (Mirror::All | Mirror::Custom), s.terrainRect = num(7) != 0;
     if (s.terrainRect && m == Mode::Terrain) s.brushSize = std::max(1.0f, s.brushSize);  // (the Rectangle tools: a tile is the least)
     if (m == Mode::Terrain && (s.tool > TRamp || (s.terrainRect && s.tool == TJumble))) s.tool = TBrush;  // (Jumble: Isometric's only)
     if ((m == Mode::Units && s.tool > UErase) || (m == Mode::Doodads && s.tool > DErase) || (m == Mode::Sprites && s.tool > SErase) ||
@@ -244,6 +256,10 @@ bool panelStateRead(PanelState& s, const std::vector<std::string>& part, size_t 
         s.otherBrushSize = std::clamp(float(std::atof(part[at + 12].c_str())), 0.5f, 32.0f),
         s.otherBrushHeight = std::clamp(float(std::atof(part[at + 13].c_str())), 0.0f, 32.0f);
     if (part.size() >= at + 15) s.otherBrushShape = Brush::Shape(std::clamp(num(14), 0, int(Brush::Circle)));
+    if (part.size() >= at + 18) {
+        s.customCenter = {num(15), num(16)};
+        s.customAxisAngle = std::atof(part[at + 17].c_str());
+    }
     return true;
 }
 // The tab's panels came from its file after the tab showed: the active one's state is the app state's again.

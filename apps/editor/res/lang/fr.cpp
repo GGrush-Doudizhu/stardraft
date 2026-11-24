@@ -3740,6 +3740,20 @@ constexpr UiText kRows[] = {
     {L"Keep recolor preview", L"Garder l'aper\u00E7u de la recoloration"},
     {L"The map shows the recolor also when this window is closed", L"La carte montre la recoloration aussi quand cette fen\u00EAtre est ferm\u00E9e"},
     {L"One stop, every value 1, time 0 (no change of the colors)", L"Un arr\u00EAt, toutes les valeurs \u00E0 1, dur\u00E9e 0 (couleurs inchang\u00E9es)"},
+    {L"Custom mirror axis", L"Axe de sym\u00E9trie personnalis\u00E9"},
+    {L"Custom symmetry point", L"Centre de sym\u00E9trie personnalis\u00E9"},
+    {L"Angle from right", L"Depuis la droite"},
+    {L"\u00B0 clockwise", L"\u00B0 horaire"},
+    {L"Terrain symmetry: select a mirror, a custom axis or a custom point (Alt+0 to Alt+6)", L"Sym\u00E9trie du terrain : choisissez un miroir, un axe personnalis\u00E9 ou un centre personnalis\u00E9 (Alt+0 \u00E0 Alt+6)"},
+    {L"Custom mirror &axis\u2026", L"&Axe de sym\u00E9trie personnalis\u00E9\u2026"},
+    {L"Custom symmetry &point\u2026", L"Centre de sym\u00E9trie &personnalis\u00E9\u2026"},
+    {L"Select on map", L"Choisir sur la carte"},
+    {L"Click the first point on the mirror axis. Esc cancels.", L"Cliquez sur le premier point de l\u2019axe de sym\u00E9trie. \u00C9chap annule."},
+    {L"Click a different point on the mirror axis. Esc cancels.", L"Cliquez sur un autre point de l\u2019axe de sym\u00E9trie. \u00C9chap annule."},
+    {L"Click the symmetry point on the map. Esc cancels.", L"Cliquez sur le centre de sym\u00E9trie sur la carte. \u00C9chap annule."},
+    {L"Mirror axis set", L"Axe de sym\u00E9trie d\u00E9fini"},
+    {L"Symmetry point set", L"Centre de sym\u00E9trie d\u00E9fini"},
+    {L"Canceled symmetry placement", L"Placement de la sym\u00E9trie annul\u00E9"},
 };
 }  // namespace
 std::span<const UiText> langTableFr() { return kRows; }

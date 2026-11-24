@@ -922,8 +922,26 @@ std::pair<int, int> Editor::anchorOnGrid(int px, int py) const {
 }
 
 void Editor::setSymmetryCenter(int px, int py) {
-    if (px < 0 || py < 0) return void(symmetryX_ = symmetryY_ = -1);
-    std::tie(symmetryX_, symmetryY_) = anchorOnGrid(px, py);
+    if (mirrors_ & Mirror::Custom) return setCustomSymmetryCenter(px, py);
+    presetCenter_ = px < 0 || py < 0 ? std::pair{-1, -1} : anchorOnGrid(px, py);
+}
+
+void Editor::setCustomSymmetryCenter(int px, int py) {
+    customCenter_ = px < 0 || py < 0 ? std::pair{-1, -1} : std::pair{std::min(px, width_ * 32), std::min(py, height_ * 32)};
+}
+
+void Editor::setCustomAxisAngle(double degrees) {
+    if (!std::isfinite(degrees)) return;
+    customAxisAngle_ = std::fmod(degrees, 180.0);
+    if (customAxisAngle_ < 0) customAxisAngle_ += 180.0;
+    if (customAxisAngle_ == 180.0) customAxisAngle_ = 0.0;
+}
+
+void Editor::copySymmetryCenter(const Editor& other) {
+    presetCenter_ = other.presetCenter_;
+    customCenter_ = other.customCenter_;
+    customAxisAngle_ = other.customAxisAngle_;
+    moreAnchors_ = other.moreAnchors_;
 }
 
 std::vector<std::pair<int, int>> Editor::symmetryAnchors() const {
@@ -958,7 +976,7 @@ void Editor::setSymmetryAnchor(int index, int px, int py) {
 void Editor::removeSymmetryAnchor(int index) {
     const int at = moreAnchorOf(index == 0 ? 1 : index);
     if (index < 0 || at < 0) return;
-    if (index == 0) std::tie(symmetryX_, symmetryY_) = moreAnchors_[size_t(at)];  // (the next one is the center now)
+    if (index == 0) setSymmetryCenter(moreAnchors_[size_t(at)].first, moreAnchors_[size_t(at)].second);
     moreAnchors_.erase(moreAnchors_.begin() + at);
 }
 
@@ -974,7 +992,7 @@ bool Editor::canCenterSymmetryAnchor(int index) const {
 
 bool Editor::centerSymmetryAnchor(int index) {
     if (!canCenterSymmetryAnchor(index)) return false;
-    if (index == 0) symmetryX_ = symmetryY_ = -1;
+    if (index == 0) setSymmetryCenter(-1, -1);
     else moreAnchors_[size_t(moreAnchorOf(index))] = anchorMiddle(index);
     mergeSymmetryAnchors();
     return true;
@@ -991,11 +1009,16 @@ int Editor::mergeSymmetryAnchors() {
     return int(before - moreAnchors_.size());
 }
 
-std::pair<int, int> Editor::symmetryCenter() const {
+std::pair<int, int> Editor::centerOnMap(std::pair<int, int> center) const {
     const int W = width_ * 32, H = height_ * 32;
-    if (symmetryX_ < 0 || symmetryX_ > W || symmetryY_ < 0 || symmetryY_ > H) return {W / 2, H / 2};  // (another map's size: the middle)
-    return {symmetryX_, symmetryY_};
+    const auto [x, y] = center;
+    if (x < 0 || x > W || y < 0 || y > H) return {W / 2, H / 2};
+    return center;
 }
+
+std::pair<int, int> Editor::symmetryCenter() const { return centerOnMap(symmetryCenterSet()); }
+
+std::pair<int, int> Editor::customSymmetryCenter() const { return centerOnMap(customCenter_); }
 
 std::pair<int, int> Editor::mirror(int px, int py, int which, std::pair<int, int> center) const {
     const double W = width_ * 32.0, H = height_ * 32.0;
@@ -1021,10 +1044,17 @@ std::pair<int, int> Editor::turnPoint(int px, int py, int k, std::pair<int, int>
 
 void Editor::setSymmetry(Symmetry s) {
     static const int masks[] = {0, Mirror::LeftRight, Mirror::TopBottom, Mirror::LeftRight | Mirror::TopBottom, 0,
-                                Mirror::Diagonal, Mirror::AntiDiagonal, 0};
-    static const int turns[] = {1, 1, 1, 1, 2, 1, 1, 4};
+                                Mirror::Diagonal, Mirror::AntiDiagonal, 0, Mirror::CustomAxis, Mirror::CustomPoint};
+    static const int turns[] = {1, 1, 1, 1, 2, 1, 1, 4, 1, 1};
     mirrors_ = masks[int(s)];
     turns_ = turns[int(s)];
+}
+
+void Editor::setMirrors(int mask) {
+    if (mask & Mirror::Custom) {
+        mirrors_ = mask & Mirror::CustomAxis ? Mirror::CustomAxis : Mirror::CustomPoint;
+        turns_ = 1;
+    } else mirrors_ = mask & Mirror::All;
 }
 
 Symmetry Editor::symmetry() const {
@@ -1036,6 +1066,8 @@ Symmetry Editor::symmetry() const {
     case Mirror::TopBottom: return Symmetry::Vertical;
     case Mirror::Diagonal: return Symmetry::Diagonal;
     case Mirror::AntiDiagonal: return Symmetry::AntiDiagonal;
+    case Mirror::CustomAxis: return Symmetry::CustomAxis;
+    case Mirror::CustomPoint: return Symmetry::CustomPoint;
     default: return Symmetry::Both;  // a mix
     }
 }
@@ -1048,11 +1080,12 @@ std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int 
     std::vector<SymmetricPlace> out{{px, py, false, false}};
     if (!mirrors_ && turns_ <= 1) return out;  // (symmetry off: the point alone, also with more anchors)
     const int W = width_ * 32, H = height_ * 32;
-    // A place is added when it is inside the map and no place is there yet (1 px).
+    // Preset combinations allow 1 px for rounding after several operations. A custom image is computed once.
+    const int tolerance = mirrors_ & Mirror::Custom ? 0 : 1;
     auto add = [&](int x, int y, bool fx, bool fy) {
         if (x < -margin || y < -margin || x > W + margin || y > H + margin || out.size() >= kMaxSymmetricPlaces) return;
         for (const SymmetricPlace& p : out)
-            if (std::abs(p.x - x) <= 1 && std::abs(p.y - y) <= 1) return;
+            if (std::abs(p.x - x) <= tolerance && std::abs(p.y - y) <= tolerance) return;
         out.push_back({x, y, fx, fy});
     };
     // How each mirror flips a pasted copy.
@@ -1065,7 +1098,26 @@ std::vector<Editor::SymmetricPlace> Editor::symmetricPlaces(int px, int py, int 
     const std::vector<std::pair<int, int>> anchors = symmetryAnchors();
     const std::pair<int, int> center = anchors.front();
     std::vector<SymmetricPlace> own{{px, py, false, false}};
-    {
+    if (mirrors_ & Mirror::Custom) {
+        const auto [cx, cy] = center;
+        int x, y;
+        bool fx = true, fy = true;
+        if (mirrors_ == Mirror::CustomPoint) {
+            x = 2 * cx - px, y = 2 * cy - py;
+        } else {
+            // Reflect in map pixels. The matrix of a line at angle a uses cos(2a) and sin(2a).
+            const double twiceAngle = customAxisAngle_ * (3.14159265358979323846 / 90.0);
+            const double c = std::cos(twiceAngle), s = std::sin(twiceAngle);
+            const double dx = double(px) - cx, dy = double(py) - cy;
+            x = int(std::lround(cx + c * dx + s * dy));
+            y = int(std::lround(cy + s * dx - c * dy));
+            fx = customAxisAngle_ == 90.0, fy = customAxisAngle_ == 0.0;
+        }
+        if (x != px || y != py) {
+            own.push_back({x, y, fx, fy});
+            add(x, y, fx, fy);
+        }
+    } else {
         auto addOwn = [&](int x, int y, bool fx, bool fy) {
             if (own.size() >= kMaxSymmetricPlaces) return;
             for (const SymmetricPlace& p : own)
@@ -1102,8 +1154,8 @@ std::vector<std::pair<int, int>> Editor::symmetricPoints(int px, int py) const {
     return out;
 }
 
-// The points a terrain brush paints at. StarEdit's brush is first centered on its lattice point (a diamond or a corner),
-// so the mirror images are lattice points too and copy the brush exactly; the other brushes mirror the pointer itself.
+// StarEdit's brush transforms the center of its source diamond or corner. Each copy snaps to its own nearest
+// diamond or corner when painted. The other brushes transform the pointer itself.
 std::vector<std::pair<int, int>> Editor::terrainSymmetricPoints(int px, int py, const Brush& brush) const {
     if (brush.starEdit()) {
         const auto [x, y] = starEditCenter(px, py, int(brush.size));
@@ -2791,28 +2843,26 @@ std::vector<std::pair<int, int>> Editor::terrainPasteCorners(int px, int py) con
     return out;
 }
 
-bool Editor::pasteTerrain(int px, int py, bool correct) {
-    if (!isomOk_ || terrainClip_.corners.empty()) return false;
-    beginEdit();
-    std::vector<std::pair<int, int>> origins;  // corner-lattice origin of each (mirrored) copy
-    std::vector<std::pair<int, int>> flips;    // (flipX, flipY) per copy
-    const auto places = symmetricPlaces(px, py, std::max(terrainClip_.width, terrainClip_.height));  // (off the map: what reaches it)
-    std::vector<std::pair<int, int>> pts;
-    for (const auto& p : places) pts.push_back({p.x, p.y});
-    for (size_t k = 0; k < pts.size(); ++k) {
-        // Mirror the clipboard for mirror images across a vertical or horizontal axis; diagonals and quarter turns
-        // only move it.
-        const int fx = places[k].flipX ? 1 : 0, fy = places[k].flipY ? 1 : 0;
+std::vector<Editor::TerrainPasteOrigin> Editor::terrainPasteOrigins(int px, int py) const {
+    std::vector<TerrainPasteOrigin> origins;
+    if (!isomOk_ || terrainClip_.corners.empty()) return origins;
+    for (const auto& p : symmetricPlaces(px, py, std::max(terrainClip_.width, terrainClip_.height))) {
         int x, y;
-        isom_.cornerAtPixel(pts[k].first, pts[k].second, x, y);
-        origins.push_back({x, y});
-        flips.push_back({fx, fy});
+        isom_.cornerAtPixel(p.x, p.y, x, y);
+        origins.push_back({x, y, p.flipX, p.flipY});
     }
+    return origins;
+}
+
+bool Editor::pasteTerrain(int px, int py, bool correct) {
+    const auto origins = terrainPasteOrigins(px, py);
+    if (origins.empty()) return false;
+    beginEdit();
     std::vector<CornerValue> corners;
-    for (size_t k = 0; k < origins.size(); ++k)
+    for (const auto& origin : origins)
         for (const auto& c : terrainClip_.corners) {
-            int dx = flips[k].first ? -c.x : c.x, dy = flips[k].second ? -c.y : c.y;  // (from the image of the mouse)
-            int x = origins[k].first + dx, y = origins[k].second + dy;
+            int dx = origin.flipX ? -c.x : c.x, dy = origin.flipY ? -c.y : c.y;
+            int x = origin.x + dx, y = origin.y + dy;
             if (!((x + y) & 1)) ++x;  // corners have x + y odd; a flip can break that
             corners.push_back({x, y, c.terrain});
         }
@@ -2831,11 +2881,11 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
     isom_.store(chk_, err);
     restoreProtected(kept);
     // Doodads and units after the terrain (tile regeneration rewrites MTXM).
-    for (size_t k = 0; k < origins.size(); ++k) {
-        const int opx = origins[k].first * 64, opy = origins[k].second * 32;
+    for (const auto& origin : origins) {
+        const int opx = origin.x * 64, opy = origin.y * 32;
         for (const Doodad& d : terrainClip_.doodads)
             if (const DoodadType* t = doodadTypes_.find(d.id)) {
-                int cx = opx + (flips[k].first ? -int16_t(d.x) : int16_t(d.x)), cy = opy + (flips[k].second ? -int16_t(d.y) : int16_t(d.y));
+                int cx = opx + (origin.flipX ? -int16_t(d.x) : int16_t(d.x)), cy = opy + (origin.flipY ? -int16_t(d.y) : int16_t(d.y));
                 if (cx < 0 || cy < 0 || cx >= width_ * 32 || cy >= height_ * 32) continue;
                 int tx, ty;
                 doodadOrigin(*t, cx, cy, tx, ty);
@@ -2846,11 +2896,11 @@ bool Editor::pasteTerrain(int px, int py, bool correct) {
             }
     }
     reloadTerrain();  // the unit check reads terrain_; the store and the doodads changed MTXM
-    for (size_t k = 0; k < origins.size(); ++k) {
-        const int opx = origins[k].first * 64, opy = origins[k].second * 32;
+    for (const auto& origin : origins) {
+        const int opx = origin.x * 64, opy = origin.y * 32;
         for (Unit u : terrainClip_.units) {
             if (unitLimit_ > 0 && int(units_.size()) >= unitLimit_) break;
-            int ux = opx + (flips[k].first ? -int16_t(u.x) : int16_t(u.x)), uy = opy + (flips[k].second ? -int16_t(u.y) : int16_t(u.y));
+            int ux = opx + (origin.flipX ? -int16_t(u.x) : int16_t(u.x)), uy = opy + (origin.flipY ? -int16_t(u.y) : int16_t(u.y));
             if (ux < 0 || uy < 0 || ux >= width_ * 32 || uy >= height_ * 32) continue;
             u.x = uint16_t(ux), u.y = uint16_t(uy);
             std::optional<Unit> f = fitted(u, correct, units_);

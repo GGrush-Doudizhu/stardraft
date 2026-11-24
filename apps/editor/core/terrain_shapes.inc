@@ -187,6 +187,18 @@ std::vector<int64_t> shapeSettingsKey() {
     const Brush b = currentBrush(app);
     std::vector<int64_t> key{int64_t(app.ed->revision()), terrainKind(), app.palette, gTiles->picked, int64_t(gTiles->chosen.size()), int64_t(gTiles->stamp.size()),
                              int64_t(b.shape), int64_t(b.size * 64), int64_t(b.height() * 64), app.ed->mirrors(), app.ed->turns()};
+    if (app.ed->mirrors() || app.ed->turns() > 1) {
+        const auto anchors = app.ed->symmetryAnchors();
+        key.push_back(int64_t(anchors.size()));
+        for (const auto& [x, y] : anchors) key.push_back(x), key.push_back(y);
+        if (app.ed->mirrors() == Mirror::CustomAxis) {
+            const double angle = app.ed->customAxisAngle();
+            int64_t bits;
+            static_assert(sizeof(bits) == sizeof(angle));
+            std::memcpy(&bits, &angle, sizeof(bits));
+            key.push_back(bits);
+        }
+    }
     for (const std::vector<uint16_t>* mask : {&app.ed->terrainMask(), &app.ed->tileMask()}) {
         key.push_back(int64_t(mask->size()));
         key.insert(key.end(), mask->begin(), mask->end());

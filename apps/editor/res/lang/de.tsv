@@ -3741,3 +3741,17 @@ brightest	am hellsten
 Keep recolor preview	Umfärbungsvorschau behalten
 The map shows the recolor also when this window is closed	Die Karte zeigt die Umfärbung auch bei geschlossenem Fenster
 One stop, every value 1, time 0 (no change of the colors)	Ein Stopp, alle Werte 1, Zeit 0 (keine Farbänderung)
+Custom mirror axis	Eigene Spiegelachse
+Custom symmetry point	Eigener Symmetriepunkt
+Angle from right	Winkel ab rechts
+° clockwise	° im Uhrz.
+Terrain symmetry: select a mirror, a custom axis or a custom point (Alt+0 to Alt+6)	Geländesymmetrie: Spiegelung, eigene Achse oder eigenen Punkt wählen (Alt+0 bis Alt+6)
+Custom mirror &axis…	Eigene Spiegel&achse…
+Custom symmetry &point…	Eigener Symmetrie&punkt…
+Select on map	Auf Karte wählen
+Click the first point on the mirror axis. Esc cancels.	Klicke auf den ersten Punkt der Spiegelachse. Esc bricht ab.
+Click a different point on the mirror axis. Esc cancels.	Klicke auf einen anderen Punkt der Spiegelachse. Esc bricht ab.
+Click the symmetry point on the map. Esc cancels.	Klicke auf den Symmetriepunkt auf der Karte. Esc bricht ab.
+Mirror axis set	Spiegelachse gesetzt
+Symmetry point set	Symmetriepunkt gesetzt
+Canceled symmetry placement	Festlegen der Symmetrie abgebrochen

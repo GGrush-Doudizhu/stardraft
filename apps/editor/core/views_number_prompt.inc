@@ -8,22 +8,31 @@
 class NumberPromptView final : public draw::View {
 public:
     static constexpr int kRowH = 34, kTop = 15, kLabelW = 120, kFieldW = 96, kPad = 14, kButtonW = 88, kButtonH = 30;
-    explicit NumberPromptView(std::vector<NumberAsk>& asks)
+    explicit NumberPromptView(std::vector<NumberAsk>& asks, std::vector<std::wstring>* savedFields = nullptr)
         : asks_(asks), ok_(tr(L"OK"), stardraft::kit::Tone::Primary, [this] { commit(); }),
-          cancel_(tr(L"Cancel"), stardraft::kit::Tone::Normal, [this] { close(kPromptCancel); }), bad_(asks.size(), false) {
+          cancel_(tr(L"Cancel"), stardraft::kit::Tone::Normal, [this] { close(NumberAnswer::Cancel); }), bad_(asks.size(), false) {
         for (size_t i = 0; i < asks_.size(); ++i) {
             fields_.push_back(std::make_unique<stardraft::kit::TextField>());
             stardraft::kit::TextField& f = *fields_[i];
             const NumberAsk& a = asks_[i];
-            f.setText(text(a.value, a.decimals));
+            f.setText(savedFields && i < savedFields->size() ? (*savedFields)[i] : text(a.value, a.decimals));
             f.setMaxLength(12);
             f.setFilter([neg = a.min < 0, dec = a.decimals > 0](wchar_t c) { return (c >= L'0' && c <= L'9') || (neg && c == L'-') || (dec && (c == L'.' || c == L',')); });
             f.onEnter = [this] { commit(); };
-            f.onEscape = [this] { close(kPromptCancel); };
+            f.onEscape = [this] { close(NumberAnswer::Cancel); };
             f.onChange = [this, i] {
                 if (bad_[i]) bad_[i] = false, invalidate();
             };
             add(f, {0, 0, 0, 0});
+        }
+        if (savedFields) {
+            pick_.setText(tr(L"Select on map"));
+            pick_.onClick = [this, savedFields] {
+                savedFields->clear();
+                for (const auto& f : fields_) savedFields->push_back(f->text());
+                close(NumberAnswer::PickOnMap);
+            };
+            add(pick_, {});
         }
         add(ok_, {0, 0, 0, 0});
         add(cancel_, {0, 0, 0, 0});
@@ -31,13 +40,13 @@ public:
     // The dialog's size at 100 %.
     static draw::Point sizeFor(size_t n) { return {385, kTop + int(n) * kRowH + 12 + kButtonH + 15}; }
     void setDialog(stardraft::kit::Dialog* d) { dlg_ = d; }
-    void close(int result) {
-        if (dlg_) dlg_->close(result);
+    void close(NumberAnswer result) {
+        if (dlg_) dlg_->close(int(result));
     }
     bool key(const draw::KeyEvent& e) override {
         if (!e.down) return false;
         if (e.key == draw::Key::Enter) return commit(), true;
-        if (e.key == draw::Key::Escape) return close(kPromptCancel), true;
+        if (e.key == draw::Key::Escape) return close(NumberAnswer::Cancel), true;
         return false;
     }
     void paint(draw::Canvas& c) override {
@@ -59,6 +68,7 @@ public:
             fields_[i]->setFrame({scale(kPad + kLabelW), scale(y), scale(kPad + kLabelW + kFieldW), scale(y + 26)});
         }
         const int by = kTop + int(fields_.size()) * kRowH + 12;
+        if (pick_.parent()) pick_.setFrame({scale(kPad), scale(by), width() - scale(kPad + 2 * kButtonW + 20), scale(by + kButtonH)});
         ok_.setFrame({width() - scale(kPad + 2 * kButtonW + 10), scale(by), width() - scale(kPad + kButtonW + 10), scale(by + kButtonH)});
         cancel_.setFrame({width() - scale(kPad + kButtonW), scale(by), width() - scale(kPad), scale(by + kButtonH)});
     }
@@ -93,26 +103,25 @@ private:
             got[i] = r;
         }
         for (size_t i = 0; i < asks_.size(); ++i) asks_[i].value = got[i];
-        close(kPromptOk);
+        close(NumberAnswer::Apply);
     }
     std::vector<NumberAsk>& asks_;
     std::vector<std::unique_ptr<stardraft::kit::TextField>> fields_;  // (a field each: kit views do not move)
-    stardraft::kit::Button ok_, cancel_;
+    stardraft::kit::Button ok_, cancel_, pick_;
     std::vector<bool> bad_;
     stardraft::kit::Dialog* dlg_ = nullptr;
     bool focused_ = false;
 };
 
-// Runs the form from `from` with `title`. OK puts the values into `asks` and returns true; Cancel, Escape and the close
-// box leave them and return false.
-inline bool runNumberPrompt(draw::View& from, const std::wstring& title, std::vector<NumberAsk>& asks) {
-    if (asks.empty()) return false;
-    NumberPromptView view(asks);
+// OK commits the numbers. A map pick saves the field text so it can be restored if the pick is canceled.
+inline NumberAnswer runNumberPrompt(draw::View& from, const std::wstring& title, std::vector<NumberAsk>& asks, std::vector<std::wstring>* fields = nullptr) {
+    if (asks.empty()) return NumberAnswer::Cancel;
+    NumberPromptView view(asks, fields);
     stardraft::kit::Dialog dlg;
     dlg.setContent(view);
     view.setDialog(&dlg);
     dlg.setInsets({0, 0, 0, 0, 0, 0});
     dlg.setCenterOnWorkArea(true);
     const draw::Point s = NumberPromptView::sizeFor(asks.size());
-    return dlg.run(from, title, draw::Point{scale(s.x), scale(s.y)}) == kPromptOk;
+    return NumberAnswer(dlg.run(from, title, draw::Point{scale(s.x), scale(s.y)}));
 }

@@ -389,6 +389,7 @@ struct MapView final : draw::View {
         switch (e.kind) {
         case draw::MouseKind::Down:
         case draw::MouseKind::DoubleClick: {
+            if (gState.symmetryPickDone && !gState.symmetryPick) return true;  // the form is about to take focus
             focus();  // the map takes the keyboard back from a text field or a list
             if (tabbed) tabbed = false, invalidate();  // (the outline of Tab goes)
             if (e.button == 2) {  // middle: drag or pan the map (Options > Middle mouse click and hold)
@@ -521,7 +522,8 @@ struct MapView final : draw::View {
             if (gState.drag == Drag::Pan || gState.drag == Drag::AutoPan) gState.drag = Drag::None;
             gState.dirty = true;
         }
-        if (gState.drag != Drag::None) mapMouseUp(gState, gState.mouseX, gState.mouseY, 0);
+        if (gState.drag == Drag::SymmetryPick) gState.drag = Drag::None;  // wait for an actual click
+        else if (gState.drag != Drag::None) mapMouseUp(gState, gState.mouseX, gState.mouseY, 0);
         invalidate();
     }
     // The release of the middle button: the press ends. A left drag from before the pan (move units, paint, a Shift

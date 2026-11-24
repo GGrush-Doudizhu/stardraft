@@ -2,6 +2,7 @@
 //
 // usage: tools_test <install dir> <badlands map (.scm/.scx)> <scratch dir>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -200,10 +201,74 @@ int main(int argc, char** argv) {
         ed.addSymmetryAnchor(2048, 992);
         ed.removeSymmetryAnchor(1);
         check(ed.symmetricPoints(900, 500).size() == 2, "anchors: removed");
-        for (int i = 0; i < 20; ++i) ed.addSymmetryAnchor(64 * i, 32 * i);
+        for (int i = 0; i < Editor::kMaxSymmetryAnchors; ++i) ed.addSymmetryAnchor(64 * i, 32 * i);
         check(int(ed.symmetryAnchors().size()) == Editor::kMaxSymmetryAnchors, "anchors: at most the limit");
         ed.setTurns(8);
         check(ed.symmetricPoints(900, 500).size() <= kMaxSymmetricPlaces, "anchors: at most the places' limit");
+    }
+
+    // A line of slope 1/2 reflects the offset (250, 0) to (150, 200) in map pixels, even on a rectangular map.
+    {
+        Editor ed(data);
+        ed.newMap(96, 64, 0, Dirt, err);
+        ed.setMirrors(Mirror::LeftRight);
+        ed.setSymmetryCenter(641, 513);
+        ed.setMirrors(Mirror::CustomAxis);
+        ed.setSymmetryCenter(901, 615);
+        ed.setCustomAxisAngle(26.565051177);
+        using Points = std::vector<std::pair<int, int>>;
+        check(ed.symmetricPoints(1151, 615) == Points{{1151, 615}, {1051, 815}},
+              "custom axis reflects in map pixels about the specified off-grid point");
+        check(ed.symmetricPoints(1101, 715) == Points{{1101, 715}}, "a point on the custom axis has one placement");
+        check(ed.symmetricPoints(902, 615) == Points{{902, 615}, {902, 616}}, "adjacent pixels across the custom axis remain distinct");
+        ed.setCustomAxisAngle(206.565051177);
+        check(ed.symmetricPoints(1051, 815) == Points{{1051, 815}, {1151, 615}},
+              "the opposite direction defines the same axis and reflects back to the original");
+        ed.setMirrors(Mirror::CustomPoint);
+        ed.setSymmetryCenter(901, 615);
+        check(ed.symmetricPoints(1151, 700) == Points{{1151, 700}, {651, 530}},
+              "point symmetry uses the exact pixel center for both coordinates");
+        check(ed.symmetricPoints(901, 615) == Points{{901, 615}}, "a placement at the custom point occurs once");
+        check(ed.symmetricPoints(1900, 800) == Points{{1900, 800}}, "an off-map point reflection is omitted");
+        ed.setMirrors(Mirror::LeftRight);
+        check(ed.symmetryCenter() == std::pair(640, 512), "returning to a preset restores its grid-aligned center");
+
+        ed.setMirrors(Mirror::CustomAxis);
+        check(ed.symmetryCenter() == std::pair(901, 615), "the custom center survives switching to a preset");
+        ed.setSymmetryCenter(1137, 605);
+        ed.setCustomAxisAngle(26.565051177);
+        const Brush diamond{Brush::Diamond, 1};
+        // The cursor first snaps to the diamond at (768,640). Its reflected center rounds to (944,289).
+        const auto preview = ed.terrainSymmetricPoints(769, 641, diamond);
+        std::set<std::pair<int, int>> expectedCorners, previewCorners;
+        for (auto [x, y] : Points{{768, 640}, {944, 289}})
+            for (auto corner : ed.brushCorners(x, y, diamond)) expectedCorners.insert(corner);
+        for (auto [x, y] : preview)
+            for (auto corner : ed.brushCorners(x, y, diamond)) previewCorners.insert(corner);
+        check(expectedCorners.size() == 8 && previewCorners == expectedCorners, "both isometric preview diamonds use the reflected geometry");
+        Editor previewMap(data);
+        previewMap.newMap(96, 64, 0, Dirt, err);
+        previewMap.setMirrors(ed.mirrors());
+        previewMap.copySymmetryCenter(ed);
+        check(previewMap.terrainSymmetricPoints(769, 641, diamond) == preview, "a preview map copies the custom center and angle");
+        const size_t before = ed.undoSteps();
+        check(ed.paintBrush(769, 641, Grass, diamond) && ed.undoSteps() == before + 1, "both custom-axis diamonds are painted in one undo step");
+        auto cornersHave = [&](uint16_t t) {
+            return std::all_of(previewCorners.begin(), previewCorners.end(),
+                               [&](const auto& c) { return ed.terrainAt(c.first * 64, c.second * 32) == t; });
+        };
+        check(cornersHave(Grass) && ed.invalidTerrain() == 0, "each previewed isometric corner receives the selected terrain");
+        ed.undo();
+        check(cornersHave(Dirt), "undo restores both preview diamonds");
+
+        ed.setSymmetryCenter(110, 512);
+        ed.setCustomAxisAngle(90);
+        const Brush square{Brush::Square, 2};
+        check(ed.symmetricPoints(252, 512) == Points{{252, 512}}, "an off-map reflected cursor is omitted");
+        check(ed.terrainSymmetricPoints(252, 512, square) == Points{{252, 512}, {-32, 512}},
+              "a reflected terrain brush keeps the portion reaching the map");
+        check(ed.paintBrush(252, 512, Grass, square) && ed.terrainAt(0, 480) == Grass && ed.terrainAt(256, 480) == Grass,
+              "the clipped brush paints at the map edge and at its original position");
     }
 
     // 1.8 symmetry: mirrored terrain is identical.

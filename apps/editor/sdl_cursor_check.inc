@@ -16,6 +16,7 @@ const char* sdlCursorName(draw::Cursor c) {
     case draw::Cursor::No: return "no";
     case draw::Cursor::Wait: return "wait";
     case draw::Cursor::Fill: return "fill";
+    case draw::Cursor::Crosshair: return "crosshair";
     default: return "arrow";
     }
 }

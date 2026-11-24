@@ -63,6 +63,10 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Esc | Polygon: stop the polygon (no change to the map) |
 | Ctrl+Alt+1 to Ctrl+Alt+4 | Terrain mode with Isometric, Rectangle, Tile or Custom (Mode > Terrain tools) |
 | Ctrl+Alt+T | Terrain mode: Isometric, Rectangle, Tile and Custom, each in turn |
+| Alt+0 | Turn off symmetry |
+| Alt+1 to Alt+4 | Toggle left-right, top-bottom or either diagonal mirror. The four mirrors can be combined. |
+| Alt+5 | Set a custom terrain mirror axis. Enter a point on the line in map pixels and an angle clockwise from the right. 0° is horizontal and 90° is vertical. |
+| Alt+6 | Set a custom terrain symmetry point in map pixels. Each brush position repeats a half turn around that point. |
 | Ctrl+click, Shift+click in the palette | Select more terrains (Shift: the ones between). Spray and Fill put them at random; Fill in patches (Mix) |
 | Alt+click in the palette | Add a terrain (Tile: a tile) to the mask, or remove it. It gets an outline. Painting then changes only the terrains (or tiles) in the mask |
 | Alt+click on the map | The pipette: the item under the mouse becomes the pick. Terrain mode: its terrain (Rectangle and Tile: its tile); Units and Sprites modes: the kind and the player; Doodads mode: the doodad; Locations mode: a copy of the location to paste |
@@ -91,6 +95,10 @@ digit, Space) does its work only when no text field has the keyboard: in a text 
 | Space (held) | Terrain mode with Custom on: the pie palette of the tileset's custom terrain. The first ring has the folders (with no folders: the custom terrain). Let go over a custom terrain to paint with it |
 | Ctrl+Space (held) | Overview: the view shows the whole map with an outline at the mouse; let go to put that place in the view |
 | Alt+wheel | The brush one size up or down; Doodads mode with a doodad picked (no spray): the next or previous doodad; Terrain mode with no brush: the tile's next or previous variation; otherwise nothing (it never zooms) |
+
+Both symmetry forms have a Select on map button. For an axis, click two different points. The first gives the
+position and the second gives the direction. For a symmetry point, click once. You can adjust the values
+when the form reopens, then click OK to apply. Esc or a right-click while picking returns to your previous entries.
 
 The mouse: the wheel zooms the map at the mouse; a trackpad scrolls it with two fingers and zooms with a pinch; the
 middle button held pans it (Options > Middle mouse click and hold).

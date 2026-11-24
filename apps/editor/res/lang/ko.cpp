@@ -3768,6 +3768,20 @@ constexpr UiText kRows[] = {
     {L"Keep recolor preview", L"\uB9AC\uCEEC\uB7EC \uBBF8\uB9AC\uBCF4\uAE30 \uC720\uC9C0"},
     {L"The map shows the recolor also when this window is closed", L"\uC774 \uCC3D\uC744 \uB2EB\uC544\uB3C4 \uB9F5\uC5D0 \uB9AC\uCEEC\uB7EC\uB97C \uD45C\uC2DC"},
     {L"One stop, every value 1, time 0 (no change of the colors)", L"\uC815\uC9C0\uC810 \uD558\uB098, \uBAA8\uB4E0 \uAC12 1, \uC2DC\uAC04 0 (\uC0C9 \uBCC0\uD654 \uC5C6\uC74C)"},
+    {L"Custom mirror axis", L"\uC0AC\uC6A9\uC790 \uC9C0\uC815 \uB300\uCE6D\uCD95"},
+    {L"Custom symmetry point", L"\uC0AC\uC6A9\uC790 \uC9C0\uC815 \uB300\uCE6D\uC810"},
+    {L"Angle from right", L"\uC624\uB978\uCABD \uAE30\uC900 \uAC01\uB3C4"},
+    {L"\u00B0 clockwise", L"\u00B0 \uC2DC\uACC4 \uBC29\uD5A5"},
+    {L"Terrain symmetry: select a mirror, a custom axis or a custom point (Alt+0 to Alt+6)", L"\uC9C0\uD615 \uB300\uCE6D: \uAE30\uBCF8 \uB300\uCE6D, \uC0AC\uC6A9\uC790 \uC9C0\uC815 \uB300\uCE6D\uCD95 \uB610\uB294 \uB300\uCE6D\uC810\uC744 \uC120\uD0DD\uD569\uB2C8\uB2E4 (Alt+0~Alt+6)"},
+    {L"Custom mirror &axis\u2026", L"\uC0AC\uC6A9\uC790 \uC9C0\uC815 \uB300\uCE6D\uCD95(&A)\u2026"},
+    {L"Custom symmetry &point\u2026", L"\uC0AC\uC6A9\uC790 \uC9C0\uC815 \uB300\uCE6D\uC810(&P)\u2026"},
+    {L"Select on map", L"\uC9C0\uB3C4\uC5D0\uC11C \uC9C0\uC815"},
+    {L"Click the first point on the mirror axis. Esc cancels.", L"\uB300\uCE6D\uCD95\uC758 \uCCAB \uBC88\uC9F8 \uC810\uC744 \uD074\uB9AD\uD558\uC138\uC694. Esc\uB97C \uB204\uB974\uBA74 \uCDE8\uC18C\uB429\uB2C8\uB2E4."},
+    {L"Click a different point on the mirror axis. Esc cancels.", L"\uB300\uCE6D\uCD95\uC758 \uB2E4\uB978 \uC810\uC744 \uD074\uB9AD\uD558\uC138\uC694. Esc\uB97C \uB204\uB974\uBA74 \uCDE8\uC18C\uB429\uB2C8\uB2E4."},
+    {L"Click the symmetry point on the map. Esc cancels.", L"\uC9C0\uB3C4\uC5D0\uC11C \uB300\uCE6D\uC810\uC744 \uD074\uB9AD\uD558\uC138\uC694. Esc\uB97C \uB204\uB974\uBA74 \uCDE8\uC18C\uB429\uB2C8\uB2E4."},
+    {L"Mirror axis set", L"\uB300\uCE6D\uCD95\uC744 \uC9C0\uC815\uD588\uC2B5\uB2C8\uB2E4"},
+    {L"Symmetry point set", L"\uB300\uCE6D\uC810\uC744 \uC9C0\uC815\uD588\uC2B5\uB2C8\uB2E4"},
+    {L"Canceled symmetry placement", L"\uB300\uCE6D \uC124\uC815\uC744 \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4"},
 };
 }  // namespace
 std::span<const UiText> langTableKo() { return kRows; }

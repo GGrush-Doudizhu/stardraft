@@ -231,6 +231,9 @@ struct NumberAsk {
     int decimals = 0;    // 0: a whole number; 1 or more: that many digits after the point at most
 };
 bool shellAskNumbers(const std::wstring& title, std::vector<NumberAsk>& asks);
+enum class NumberAnswer { Cancel = -1, Apply, PickOnMap };
+// The same form with a map picker. PickOnMap saves the field text, including unfinished input, for the return trip.
+NumberAnswer shellAskNumbersOnMap(const std::wstring& title, std::vector<NumberAsk>& asks, std::vector<std::wstring>& fields);
 // A value typed in the pop-out under `field` (a part of the view `v`, in its coordinates), as the Data form's values.
 // False: Cancel.
 bool shellEditValueBelow(stardraft::draw::View& v, stardraft::draw::Rect field, const std::wstring& title, std::string& text);

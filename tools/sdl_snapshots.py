@@ -30,6 +30,7 @@ case's function in CHECKS finds a problem in its output.
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import struct
@@ -627,6 +628,14 @@ CASES += [
     ("map-solid-mirror", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B", "--wheel", "560,690,0,-1:Alt",
                           "--drag", "520,650-600,650", "--key", "Ctrl+Z", "--key", "Alt+1", "--drag", "520,650-600,650",
                           "--move", "560,600"], "map"),
+    # A size-one Rectangle brush uses the previewed pair of tiles with an oblique axis or an off-grid point.
+    ("map-solid-custom-axis", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B", "--wheel", "560,690,0,-1:Alt",
+                               "--key", "Alt+5", "--type", "2003", "--key", "Tab", "--key", "Tab", "--key", "Ctrl+A", "--type", "26.57", "--key", "Enter",
+                               "--move", "560,690", "--click", "560,690", "--key", "Ctrl+Z"], "map"),
+    ("map-solid-custom-point", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B", "--wheel", "560,690,0,-1:Alt",
+                                "--key", "Alt+6", "--type", "2033", "--key", "Enter", "--move", "560,690", "--click", "560,690", "--key", "Ctrl+Z"], "map"),
+    ("map-pick-terrain-symmetry", ["--solid", "--key", "Q", "--type", "solar array", "--key", "Enter", "--key", "B",
+                                   "--script", "{script:picksymmetry}"], "map"),
     # The terrain selection (V) of the Diamond and of the Circle: its outline (Isometric: on the diamonds' edges;
     # Rectangle: on the tile edges), as the rectangle's (GitHub #135, #136).
     ("map-terrain-select-square", ["--mode", "terrain", "--key", "V", "--drag", "520,600-700,720"], "map"),
@@ -1430,7 +1439,20 @@ if sys.platform == "win32":
 # dialogs: F2's prompt renames the location, 300 times (each prompt is a window of the snapshot: more than 255 of them).
 # Options > Units > Can be on top of others, the Marine picked, three clicks at one point, Esc: a stack of three units.
 STACK_PLACE = "command options.stack\nclick 1386,429\nclick 700,650\nclick 700,650\nclick 700,650\nkey Esc\n"
+# In each custom symmetry form, tab from the X field past the other fields to the map picker.
+PICK_AXIS_BUTTON = "key Tab\nkey Tab\nkey Tab\nkey Space\n"
+PICK_POINT_BUTTON = "key Tab\nkey Tab\nkey Space\n"
 SCRIPTS = {
+    # Modal inputs log before the input that opened the form. Each distinct wait records its state in script order.
+    "picksymmetry": ("key Alt+0\nwait 1\nkey Alt+6\n" + PICK_POINT_BUTTON +
+                     "move 550,725\nwait 2\nclick 550,725\nwait 3\nkey Enter\nwait 4\n"
+                     "key Alt+5\n" + PICK_AXIS_BUTTON +
+                     "click 620,570\nmove 780,650\nwait 5\nclick 620,570\nwait 6\nclick 780,650\nwait 7\n"
+                     "key Ctrl+A\ntype 1703\nkey Enter\nwait 8\n"
+                     "key Alt+5\ntype 1837\n" + PICK_AXIS_BUTTON +
+                     "click 640,660\nkey Esc\nwait 9\nkey Enter\nwait 10\n"
+                     "key Alt+6\n" + PICK_POINT_BUTTON +
+                     "click 700,610\nwait 11\nkey Esc\nwait 12\nclick 560,690\nwait 13\nkey Ctrl+Z\nwait 14\n"),
     # Terrain copied in one map pastes in another map of the same tileset (GitHub #146): Orbital Relay (Space Platform)
     # opens; Ctrl+V there pastes the first map's terrain (a map of another tileset: a message says why not), and a click
     # puts it.
@@ -2164,6 +2186,64 @@ def check_solid_mirror(output):
     placed = [int(n) for i, m, _ in solid_steps(output) if i == "drag 520,650-600,650" for n in re.findall(r"^Placed (\d+) tiles", m)]
     if len(placed) != 2 or placed[0] < 2 or placed[1] != 2 * placed[0]:
         return f"the strokes placed {placed} tiles, not n and 2n"
+    return None
+
+
+def check_solid_custom_symmetry(output):
+    steps = solid_steps(output)
+    _, preview = solid_step(steps, "move 560,690")
+    msg, placed = solid_step(steps, "click 560,690")
+    _, undone = solid_step(steps, "key Ctrl+Z")
+    if preview.get("brush") != "1x1" or not preview.get("tilepreview", "").startswith("2/"):
+        return f"expected two tiles in the size-one Rectangle preview, got {preview.get('brush')} and {preview.get('tilepreview')}"
+    if not msg.startswith("Placed 2 tiles") or placed.get("terrain") == preview.get("terrain"):
+        return f"painting the previewed tiles gave {msg!r}, terrain {placed.get('terrain')}"
+    if undone.get("terrain") != preview.get("terrain"):
+        return "one undo did not restore the terrain under both copies"
+    return None
+
+
+def check_pick_terrain_symmetry(output):
+    checkpoints = {i: s for i, _, s in solid_steps(output) if i.startswith("wait ")}
+    try:
+        states = [checkpoints[f"wait {n}"] for n in range(1, 15)]
+        (initial, pointer, picked_point, point, guide, repeat, picked_axis, axis, escaped, manual_axis,
+         new_point, canceled, painted, undone) = states
+        if pointer["sympick"] != "32/-" or picked_point["sympick"] != "0/-":
+            return "one map click did not return from picking a point"
+        if any(s["symmetry"] != initial["symmetry"] for s in (pointer, picked_point)):
+            return "the point changed the active symmetry before the form was confirmed"
+        if point["symmetry"].split(",")[:3] != ["32", *pointer["worldpx"].split(",")]:
+            return f"confirming the picked center {pointer['worldpx']} gave {point['symmetry']}"
+
+        if guide["sympick"] != "16/" + repeat["worldpx"] or repeat["sympick"] != guide["sympick"]:
+            return "the axis preview did not retain its first point when that point was clicked again"
+        if picked_axis["sympick"] != "0/-" or any(s["symmetry"] != point["symmetry"] for s in (guide, repeat, picked_axis)):
+            return "picking the second axis point failed to return to the form with the previous symmetry active"
+        x1, y1 = map(int, repeat["worldpx"].split(","))
+        x2, y2 = map(int, guide["worldpx"].split(","))
+        field = [value for inp, kind, value, _, _ in focus_lines(output) if inp == "key Ctrl+A" and kind == "text field"]
+        if field != [str(x1)]:
+            return f"the X field should contain the first picked coordinate {x1} before editing, got {field}"
+        expected = math.degrees(math.atan2(y2 - y1, x2 - x1)) % 180
+        mask, cx, cy, angle = axis["symmetry"].split(",")
+        if (mask, int(cx), int(cy)) != ("16", 1703, y1) or abs(float(angle) - expected) > 0.01:
+            return f"editing X after picking the axis gave {axis['symmetry']}, expected 1703,{y1} and {expected:.2f} degrees"
+
+        if escaped["sympick"] != "0/-" or escaped["symmetry"] != axis["symmetry"]:
+            return "Escape during an axis pick changed the active symmetry"
+        if manual_axis["symmetry"].split(",") != [mask, "1837", cy, angle]:
+            return "Escape during a partial pick did not return the manually edited draft to the form"
+        if any(s["symmetry"] != manual_axis["symmetry"] for s in (new_point, canceled)) or new_point["sympick"] != "0/-":
+            return "canceling the form after picking a new center changed the confirmed axis"
+        if any(s["terrain"] != initial["terrain"] or s["terrainundo"] != initial["terrainundo"] for s in states[:-2]):
+            return "previewing, choosing or confirming symmetry changed tiles or created an undo step"
+        if painted["terrain"] == initial["terrain"] or int(painted["terrainundo"]) != int(initial["terrainundo"]) + 1:
+            return "the next brush click after canceling the form did not paint in a single step"
+        if undone["terrain"] != initial["terrain"] or undone["terrainundo"] != initial["terrainundo"]:
+            return "Undo did not restore the map to its original state"
+    except (KeyError, ValueError) as error:
+        return f"incomplete map symmetry pick state: {error}"
     return None
 
 
@@ -5087,6 +5167,8 @@ def check_custom_other_tileset(output):
 CHECKS.update({
     "map-custom-terrain": check_custom_terrain, "map-custom-other-tileset": check_custom_other_tileset,
     "map-solid-brush": check_solid_brush, "map-solid-size3": check_solid_size3, "map-solid-mirror": check_solid_mirror,
+    "map-solid-custom-axis": check_solid_custom_symmetry, "map-solid-custom-point": check_solid_custom_symmetry,
+    "map-pick-terrain-symmetry": check_pick_terrain_symmetry,
     "cmbw-solid-brush": check_cmbw_solid, "map-rect-variants": check_rect_variants(16), "map-terrain-kind-keys": check_terrain_kind_keys, "map-rect-variants-repeat": check_rect_variants_repeat, "cmbw-rect-variants": check_rect_variants(18),
     "help-index": check_help_page("index", "", "StarDraft 2 help"),
     "help-page": check_help_page("units-dat", "hit-points", "Units (units.dat)"),

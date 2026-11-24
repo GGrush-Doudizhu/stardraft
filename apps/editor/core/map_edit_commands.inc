@@ -51,7 +51,7 @@ constexpr ProgramKey kProgramKeys[] = {
     {"Ctrl+Alt+T", ID_TERRAIN_KIND_NEXT, true},  // (Terrain mode: Isometric, Rectangle, Tile, Custom in turn)
     // The tool strip's symmetry: each mirror on or off (they combine), Alt+0 none
     {"Alt+0", ID_MIRROR_KEY, true}, {"Alt+1", ID_MIRROR_KEY + 1, true}, {"Alt+2", ID_MIRROR_KEY + 2, true}, {"Alt+3", ID_MIRROR_KEY + 3, true},
-    {"Alt+4", ID_MIRROR_KEY + 4, true},
+    {"Alt+4", ID_MIRROR_KEY + 4, true}, {"Alt+5", ID_CUSTOM_AXIS, true}, {"Alt+6", ID_CUSTOM_POINT, true},
 #ifdef __APPLE__  // macOS: Cmd+Delete deletes; Cmd+` (with Shift: back) is the next tab
     {"Ctrl+Backspace", ID_EDIT_DELETE}, {"Ctrl+`", ID_TAB_NEXT},     {"Ctrl+Shift+`", ID_TAB_PREV},
 #endif
@@ -533,13 +533,9 @@ bool commandMapEdit(AppState& app, int id) {
     }
     if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) {  // (as the tool strip's mirror buttons: in the modes that have them)
         if (!app.ed || !app.ed->isOpen() || !stripHasMirrors()) return done();
-        static const int kFlags[5] = {0, Mirror::LeftRight, Mirror::TopBottom, Mirror::Diagonal, Mirror::AntiDiagonal};
         static const wchar_t* const kNames[5] = {L"none", L"left and right", L"top and bottom", L"top left to bottom right", L"top right to bottom left"};
-        const int k = id - ID_MIRROR_KEY, flag = kFlags[k];
-        app.ed->setMirrors(flag ? app.ed->mirrors() ^ flag : 0);
-        if (!flag) app.ed->setTurns(1);  // (none: the turns off too)
-        shellToolsChanged();
-        app.dirty = true;
+        const int k = id - ID_MIRROR_KEY, flag = kMirrorKinds[k].flag;
+        setMirrorKind(flag);
         setMessage(!flag ? std::wstring(L"Symmetry: none")
                          : L"Symmetry: " + std::wstring(kNames[k]) + ((app.ed->mirrors() & flag) ? L" on" : L" off"));
         return done();
@@ -552,6 +548,10 @@ bool commandMapEdit(AppState& app, int id) {
         return true;
     }
     switch (id) {
+    case ID_CUSTOM_AXIS:
+    case ID_CUSTOM_POINT:
+        if (gWorkspace == Workspace::Map) editCustomSymmetry(id == ID_CUSTOM_AXIS ? Mirror::CustomAxis : Mirror::CustomPoint);
+        break;
     case ID_FILE_CLOSE: closeDoc(gActive); break;
     case ID_FILE_CLOSEALL:
         if (closeAllDocs()) openStartPage();  // always keep one tab open: the start page
@@ -744,6 +744,8 @@ bool dataTableViewOn();  // (core/data_table.inc: the Data workspace shows its T
 extern bool gClassicTableOn;  // (classic_table.inc: Map data's Form | Table)
 int mapMenuCheck(int id) {
     const AppState& app = shellState();
+    if (id == ID_CUSTOM_AXIS || id == ID_CUSTOM_POINT)
+        return app.mode == Mode::Terrain && app.ed && app.ed->mirrors() == (id == ID_CUSTOM_AXIS ? Mirror::CustomAxis : Mirror::CustomPoint);
     if (id == ID_SNAP_UNITS) return app.snapUnits;
     if (id == ID_SNAP_SPRITES) return app.snapSprites;
     if (id == ID_SNAP_LOCATIONS) return app.snapLocations;
@@ -795,6 +797,7 @@ bool dataCanUndo(bool redo);  // core/data_model.inc
 bool mediaCanUndo(bool redo);  // core/media_model.inc
 bool mapMenuGrayed(int id) {
     const AppState& app = shellState();
+    if (id == ID_CUSTOM_AXIS || id == ID_CUSTOM_POINT) return gWorkspace != Workspace::Map || app.mode != Mode::Terrain;
     if (id == ID_EDIT_UNDO || id == ID_EDIT_REDO) {  // a step to undo (or redo) in the workspace that shows
         const bool redo = id == ID_EDIT_REDO;
         if (gWorkspace == Workspace::Triggers) return !trigCanUndo(redo);

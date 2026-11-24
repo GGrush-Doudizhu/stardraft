@@ -20,7 +20,7 @@ namespace stardraft::draw {
 
 // SizeNWSE: from the top left to the bottom right (a rectangle's top left or bottom right corner); SizeNESW: the other diagonal.
 // Fill: a paint bucket (the Fill tools over the map).
-enum class Cursor { Arrow, Hand, IBeam, SizeAll, SizeWE, SizeNS, No, Wait, SizeNWSE, SizeNESW, Fill };
+enum class Cursor { Arrow, Hand, IBeam, SizeAll, SizeWE, SizeNS, No, Wait, SizeNWSE, SizeNESW, Fill, Crosshair };
 
 enum Mods : unsigned { kShift = 1, kCtrl = 2, kAlt = 4, kSuper = 8 };
 

@@ -1,4 +1,11 @@
 // The editor's state (what struct App held apart from its windows): portable (core.inc).
+struct PickedSymmetry {
+    std::pair<int, int> center;  // the first axis point or the symmetry point, in map pixels
+    double angle;                // clockwise from the right, modulo 180 (unused for a point)
+};
+using SymmetryPickResult = std::optional<PickedSymmetry>;
+using SymmetryPickDone = std::function<void(SymmetryPickResult)>;
+
 struct AppState {
     std::wstring statusText[7];
     std::vector<uint32_t> megatileColor;  // average color per megatile (0x00RRGGBB)
@@ -92,6 +99,9 @@ struct AppState {
     int mouseX = 0, mouseY = 0;  // viewport pixels
     bool mouseIn = false;
     Drag drag = Drag::None;
+    int symmetryPick = 0;  // Terrain is waiting for a custom axis or point on the map (Mirror::CustomAxis / CustomPoint).
+    std::optional<std::pair<int, int>> symmetryPickFirst;
+    std::shared_ptr<SymmetryPickDone> symmetryPickDone;  // owns the form draft until the pick returns or is abandoned
     float dragWX = 0, dragWY = 0;  // world point where the drag started
     int dragSX = 0, dragSY = 0;    // screen point where the drag started
     bool dragMoved = false;

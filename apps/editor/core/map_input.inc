@@ -291,6 +291,64 @@ int gSymmetryDragged = 0;                                    // the anchor that 
 int gSymmetryHover = -1;
 bool gDragOffTold = false;  // (Options > Drag objects to move them off: the status bar told it in this press)                                     // the anchor under the mouse at the last move, or -1
 std::pair<int, int> gSymmetryFrom{-1, -1};                  // the center when its drag began (Esc puts it back)
+
+std::optional<std::pair<int, int>> symmetryPickPoint(const Editor& ed, float wx, float wy) {
+    if (wx < 0 || wy < 0 || wx > ed.width() * 32 || wy > ed.height() * 32) return std::nullopt;
+    return std::pair{int(wx), int(wy)};
+}
+
+bool cancelSymmetryPick(AppState& app) {
+    if (!app.symmetryPickDone) return false;
+    app.symmetryPickDone.reset();
+    app.symmetryPick = 0;
+    app.symmetryPickFirst.reset();
+    if (app.drag == Drag::SymmetryPick) app.drag = Drag::None;
+    app.dirty = true;
+    setMessage(app, L"Canceled symmetry placement");
+    return true;
+}
+
+// Let the map release the mouse before opening the form. Switching tools or tabs discards
+// this particular draft, including a return that is already queued.
+void finishSymmetryPick(AppState& app, SymmetryPickResult result) {
+    app.symmetryPick = 0;
+    app.symmetryPickFirst.reset();
+    if (app.drag == Drag::SymmetryPick) app.drag = Drag::None;
+    app.dirty = true;
+    shellPost([&app, draft = std::weak_ptr<SymmetryPickDone>(app.symmetryPickDone), result] {
+        if (auto done = draft.lock(); done && app.symmetryPickDone == done) {
+            app.symmetryPickDone.reset();
+            (*done)(result);
+        }
+    });
+}
+
+void applyCustomSymmetry(AppState& app, int flag, std::pair<int, int> center, double angle) {
+    Editor& ed = *app.ed;
+    ed.setMirrors(flag);
+    ed.setCustomSymmetryCenter(center.first, center.second);
+    if (flag == Mirror::CustomAxis) ed.setCustomAxisAngle(angle);
+    ed.mergeSymmetryAnchors();
+    app.dirty = true;
+    shellToolsChanged();
+    setMessage(app, flag == Mirror::CustomAxis ? L"Mirror axis set" : L"Symmetry point set");
+}
+
+void pickSymmetryAt(AppState& app, float wx, float wy) {
+    const auto point = symmetryPickPoint(*app.ed, wx, wy);
+    if (!point) return;
+    if (app.symmetryPick == Mirror::CustomPoint) return finishSymmetryPick(app, PickedSymmetry{*point, 0});
+    if (!app.symmetryPickFirst) {
+        app.symmetryPickFirst = point;
+        app.dirty = true;
+        return setMessage(app, L"Click a different point on the mirror axis. Esc cancels.");
+    }
+    const auto first = *app.symmetryPickFirst;
+    if (first == *point) return;
+    const double radians = std::atan2(point->second - first.second, point->first - first.first);
+    const double degrees = std::fmod(radians * (180.0 / 3.14159265358979323846) + 180.0, 180.0);
+    finishSymmetryPick(app, PickedSymmetry{first, degrees});
+}
 // The symmetry center's handle (Terrain's Select tool, with a mirror or turns on): the screen point (sx, sy) is on it.
 // The anchor whose handle is at this place of the window (Terrain's Select tool), or -1. The last one first: on top.
 int symmetryHandleIndex(const AppState& app, int sx, int sy) {
@@ -309,9 +367,13 @@ void mapMouseDown(AppState& app, int sx, int sy, unsigned mods) {
     LayersLiveAfter live{app};
     if (!app.ed || !app.ed->isOpen()) return;
     Editor& ed = *app.ed;
-    mapLayersSync();  // (the last edit is in its layer before the next one)
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
+    if (app.symmetryPickDone) {  // also consume clicks while the form is queued to reopen
+        if (app.symmetryPick && symmetryPickPoint(ed, wx, wy)) app.drag = Drag::SymmetryPick;
+        return;
+    }
+    mapLayersSync();  // (the last edit is in its layer before the next one)
     gStackNext = -1;
     // Alt+click (macOS: Option+click) on two or more units: the list of the units there (on one unit, or while a unit
     // type is selected for placing: the pipette).
@@ -726,6 +788,11 @@ void mapMouseMove(AppState& app, int sx, int sy, unsigned mods) {
         app.mouseIn = true;
         shellTrackMouseLeave();
     }
+    if (app.symmetryPick) {
+        app.dirty = true;
+        updateStatus(app);
+        return;
+    }
     if (std::abs(sx - app.dragSX) + std::abs(sy - app.dragSY) > 4) {
         // (Options > Drag objects to move them off: a press on an object selects it and a drag does not move it)
         const bool objectMove = app.drag == Drag::MoveUnits || app.drag == Drag::MoveDoodad || app.drag == Drag::MoveSprite || app.drag == Drag::LocMove;
@@ -888,6 +955,15 @@ void mapMouseUp(AppState& app, int sx, int sy, unsigned mods) {
     Editor& ed = *app.ed;
     float wx, wy;
     toWorld(app, sx, sy, wx, wy);
+    if (app.symmetryPick) {
+        if (app.drag == Drag::SymmetryPick) {
+            app.drag = Drag::None;
+            int w, h;
+            viewSize(w, h);
+            if (sx >= 0 && sy >= 0 && sx < w && sy < h) pickSymmetryAt(app, wx, wy);
+        }
+        return;
+    }
     bool shift = mods & draw::kShift;
     if (app.drag == Drag::LayerTool) return mapLayersDragUp(app);
     if (app.drag == Drag::TerrainLasso) {
@@ -1167,6 +1243,11 @@ void terrainEditBlockedMessage() {
 
 stardraft::draw::Cursor mapCursorAt(AppState& app, int x, int y) {
     using stardraft::draw::Cursor;
+    if (app.symmetryPick && app.ed) {
+        float wx, wy;
+        toWorld(app, x, y, wx, wy);
+        return symmetryPickPoint(*app.ed, wx, wy) ? Cursor::Crosshair : Cursor::No;
+    }
     if (float wx, wy; toWorld(app, x, y, wx, wy), terrainEditBlockedAt(app, wx, wy)) return Cursor::No;  // (off the map)
     // (a locked layer, or a linked duplicate, which is always locked: no terrain tool paints on it)
     if (app.mode == Mode::Terrain && app.drag == Drag::None && mapLayersActiveLocked() && terrainEditBlockedAt(app, -1, -1)) return Cursor::No;
@@ -1215,7 +1296,11 @@ void trigCancelUnitPick();
 // Esc on the map: a trigger's unit pick stops; a stroke (place, spray, paste, paint) ends as one undo step; then back
 // to the mode's selection (Select, nothing picked, no paste), and in it already, the selection goes. Returns true when
 // a stroke ended (the host lets the mouse go).
-bool mapCancelStep(AppState& app) {
+bool mapCancelStep(AppState& app, bool keepTool = false) {
+    if (app.symmetryPickDone) {
+        if (app.symmetryPick) finishSymmetryPick(app, std::nullopt);
+        return true;
+    }
     trigCancelUnitPick();
     if (app.drag == Drag::LayerTool) return mapLayersDragCancel(app), true;
     if (app.drag == Drag::TerrainMove) return app.drag = Drag::None, app.dirty = true, true;
@@ -1239,6 +1324,11 @@ bool mapCancelStep(AppState& app) {
         app.drag = Drag::None;
         stroke = true;
     }
+    if (keepTool) {
+        app.drag = Drag::None;
+        app.dirty = true;
+        return stroke;
+    }
     if (!inSelection()) {
         enterSelection();
         setMessage(app, std::wstring(kModeNames[int(app.mode)]) + L": select");
@@ -1254,6 +1344,20 @@ bool mapCancelStep(AppState& app) {
     app.drag = Drag::None;
     app.dirty = true;
     return stroke;
+}
+
+void beginSymmetryPick(AppState& app, int flag, SymmetryPickDone done) {
+    if (app.mode != Mode::Terrain || !app.ed || !app.ed->isOpen()) return;
+    if (app.drag != Drag::None || shapeOn()) mapCancelStep(app, true);
+    app.symmetryPick = flag;
+    app.symmetryPickFirst.reset();
+    app.symmetryPickDone = std::make_shared<SymmetryPickDone>(std::move(done));
+    gSymmetryHover = -1;
+    gSymmetryPressAt = {};
+    app.dirty = true;
+    shellFocusView();
+    setMessage(app, flag == Mirror::CustomAxis ? L"Click the first point on the mirror axis. Esc cancels."
+                                               : L"Click the symmetry point on the map. Esc cancels.");
 }
 
 void shareTerrainCopy(const Editor& ed);  // (map_edit_commands.inc)

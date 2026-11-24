@@ -119,6 +119,7 @@ void setTerrainKind(int kind) {
     AppState& app = appState();
     const int was = terrainKind();
     if (was == kind) return;
+    cancelSymmetryPick(app);
     const bool rect = kind != 0;
     if ((was == 2) != (kind == 2)) {  // to Custom or from it: the tile or the custom terrain picked before goes
         if (kind == 2 || !gTiles->stampName.empty()) {
@@ -190,6 +191,11 @@ void stripNumberChanged() {
     shellToolsChanged();
     appState().dirty = true;
 }
+void setStripTurns(Editor& ed, int turns) {
+    cancelSymmetryPick(appState());
+    if (turns > 1 && (ed.mirrors() & Mirror::Custom)) ed.setMirrors(0);
+    ed.setTurns(turns);
+}
 // One step up (dir 1) or down (-1).
 void stripNumberStep(int which, int dir) {
     AppState& app = appState();
@@ -217,7 +223,7 @@ void stripNumberStep(int which, int dir) {
     } else if (which == kNumHeight) {  // linked: one step from the height it shows, and no longer linked
         app.brushHeight = std::clamp(std::round(brushHeightOf(app)) + float(dir), 1.0f, 32.0f);
     } else if (which == kNumTurns) {
-        if (app.ed) app.ed->setTurns(app.ed->turns() + dir);
+        if (app.ed) setStripTurns(*app.ed, app.ed->turns() + dir);
     } else if (which == kNumMix) {
         app.fillMix = std::clamp(app.fillMix + dir, 1, 10);
     } else if (which == kNumDetail) {  // (as Density: 0, 1, 5, 10, ... 100)
@@ -252,7 +258,7 @@ bool stripNumberSet(int which, const std::wstring& text) {
     } else if (which == kNumHeight) {
         app.brushHeight = float(std::clamp(std::round(v), 1.0, 32.0));  // a value of its own (the link turns off)
     } else if (which == kNumTurns) {
-        if (app.ed) app.ed->setTurns(int(std::lround(std::clamp(v, -1000.0, 1000.0))));
+        if (app.ed) setStripTurns(*app.ed, int(std::lround(std::clamp(v, -1000.0, 1000.0))));
     } else if (which == kNumMix) {
         app.fillMix = std::clamp(int(std::lround(std::clamp(v, -1000.0, 1000.0))), 1, 10);
     } else if (which == kNumDetail) {
@@ -268,6 +274,7 @@ bool stripNumberSet(int which, const std::wstring& text) {
 // A tool of the strip: as its button does.
 void pickStripTool(const StripItem& it) {
     AppState& app = appState();
+    cancelSymmetryPick(app);
     if (it.select) enterSelection(), setMessage(std::wstring(kModeNames[int(app.mode)]) + L": select");
     else {
         app.toolByMode[int(app.mode)] = it.tool;
@@ -378,7 +385,7 @@ void iconButtonFace(Canvas& c, Rect r, UiIcon g, bool on, bool over, bool disabl
 }
 // A mirror's picture: a square and its axis (`kind`: Mirror flags; several: their axes together, as the symmetry
 // button shows the mirrors in use). Smooth, in the button's color (the square's line at 110 of 255).
-void mirrorIcon(Canvas& c, Rect r, int kind, Color col, Color /*ground*/) {
+void mirrorIcon(Canvas& c, Rect r, int kind, Color col, double degrees) {
     using P = Canvas::PointF;
     const float s = float(scale(14)), x0 = (r.left + r.right - s) / 2.0f, y0 = (r.top + r.bottom - s) / 2.0f;
     const float aw = float(std::max(1, scale(2))) * 0.75f;  // the axis's width
@@ -387,6 +394,16 @@ void mirrorIcon(Canvas& c, Rect r, int kind, Color col, Color /*ground*/) {
     if (kind & Mirror::TopBottom) c.smoothLine(P{x0 - 1, y0 + s / 2}, P{x0 + s + 1, y0 + s / 2}, col, aw);
     if (kind & Mirror::Diagonal) c.smoothLine(P{x0, y0}, P{x0 + s, y0 + s}, col, aw);
     if (kind & Mirror::AntiDiagonal) c.smoothLine(P{x0 + s, y0}, P{x0, y0 + s}, col, aw);
+    if (kind & Mirror::Custom) {
+        const float cx = x0 + s / 2, cy = y0 + s / 2, radius = s * 0.17f;
+        if (kind == Mirror::CustomAxis) {
+            const double angle = degrees * kStripPi / 180.0;
+            const float dx = float(std::cos(angle)), dy = float(std::sin(angle));
+            const float extent = s / (2 * std::max(std::abs(dx), std::abs(dy)));
+            c.smoothLine(P{cx - extent * dx, cy - extent * dy}, P{cx + extent * dx, cy + extent * dy}, col, aw);
+        }
+        c.smoothEllipse(P{cx - radius, cy - radius}, 2 * radius, 2 * radius, col);
+    }
 }
 // The brushes' number as dots (Brushes: the brushes go round the symmetry center): n dots in a ring round the
 // middle of `r` (1: one dot in the middle), the first at the top.
@@ -485,8 +502,7 @@ void stripGroupPopout(StripItem it, draw::View& from, draw::Rect button) {
     host->openWindow(from, gToolPopout, draw::WindowSpec{draw::WindowKind::Popup, at, L""}, [] { gToolPopout.open = false, gToolPopout.hot = -1; });
 }
 
-// The symmetry button's pop-out (stripMirrorPopout): No symmetry, then the four mirrors. A mirror is on or off at a
-// click (they combine) and the row stays open; No symmetry turns them all off (and the brushes to 1) and closes it.
+// The four preset mirrors combine. In Terrain the two extra buttons open the custom axis and point forms.
 struct MirrorKind {
     int flag;
     const wchar_t* tip;
@@ -495,11 +511,47 @@ constexpr MirrorKind kMirrorKinds[] = {{0, L"No symmetry"},
                                        {Mirror::LeftRight, L"Mirror left and right"},
                                        {Mirror::TopBottom, L"Mirror top and bottom"},
                                        {Mirror::Diagonal, L"Mirror across the line from top left to bottom right"},
-                                       {Mirror::AntiDiagonal, L"Mirror across the line from top right to bottom left"}};
+                                       {Mirror::AntiDiagonal, L"Mirror across the line from top right to bottom left"},
+                                       {Mirror::CustomAxis, L"Custom mirror axis"},
+                                       {Mirror::CustomPoint, L"Custom symmetry point"}};
+int stripMirrorCount() { return appState().mode == Mode::Terrain ? int(std::size(kMirrorKinds)) : 5; }
+void showSymmetryForm(AppState& app, int flag, std::pair<int, int> center, double originalAngle, std::vector<std::wstring> fields = {}) {
+    if (gWorkspace != Workspace::Map || app.mode != Mode::Terrain || !app.ed || !app.ed->isOpen()) return;
+    const int doc = activeDocKey();
+    const Editor* editor = app.ed.get();
+    const PanelState* panel = gActivePanel;
+    const bool axis = flag == Mirror::CustomAxis;
+    const double displayedAngle = std::round(originalAngle * 100) / 100;
+    std::vector<NumberAsk> asks{{tr(L"X"), tr(L"pixels"), double(center.first), 0, double(app.ed->width() * 32)},
+                                {tr(L"Y"), tr(L"pixels"), double(center.second), 0, double(app.ed->height() * 32)}};
+    if (axis) asks.push_back({tr(L"Angle from right"), tr(L"\u00b0 clockwise"), displayedAngle, 0, 180, 2});
+    const NumberAnswer answer = shellAskNumbersOnMap(tr(axis ? L"Custom mirror axis" : L"Custom symmetry point"), asks, fields);
+    if (activeDocKey() != doc || app.ed.get() != editor || gActivePanel != panel || gWorkspace != Workspace::Map ||
+        app.mode != Mode::Terrain || !app.ed->isOpen()) return;
+    if (answer == NumberAnswer::PickOnMap) {
+        beginSymmetryPick(app, flag, [&app, flag, center, originalAngle, fields = std::move(fields)](SymmetryPickResult picked) mutable {
+            if (picked) showSymmetryForm(app, flag, picked->center, picked->angle);
+            else showSymmetryForm(app, flag, center, originalAngle, std::move(fields));
+        });
+        return;
+    }
+    if (answer != NumberAnswer::Apply) return setMessage(app, L"Canceled symmetry placement");
+    // Moving an axis picked on the map keeps its full angle if its displayed value did not change.
+    const double angle = axis && asks[2].value != displayedAngle ? asks[2].value : originalAngle;
+    applyCustomSymmetry(app, flag, {int(asks[0].value), int(asks[1].value)}, axis ? angle : 0.0);
+}
+void editCustomSymmetry(int flag) {
+    AppState& app = appState();
+    if (app.mode != Mode::Terrain || !app.ed || !app.ed->isOpen()) return;
+    cancelSymmetryPick(app);
+    showSymmetryForm(app, flag, app.ed->customSymmetryCenter(), app.ed->customAxisAngle());
+}
 void setMirrorKind(int flag) {  // (a click on a mirror, or on No symmetry: 0)
     AppState& a = appState();
     if (!a.ed) return;
-    a.ed->setMirrors(flag ? a.ed->mirrors() ^ flag : 0);
+    cancelSymmetryPick(a);
+    const int presets = a.ed->mirrors() & ~Mirror::Custom;
+    a.ed->setMirrors(flag ? presets ^ flag : 0);
     if (!flag) a.ed->setTurns(1);  // (No symmetry turns the brushes off too)
     shellToolsChanged();
     a.dirty = true;
@@ -512,7 +564,7 @@ struct MirrorPopoutView final : draw::View {
     int at(draw::Point p) const {
         if (p.y < pad() || p.y >= pad() + cell() || p.x < pad()) return -1;
         const int i = (p.x - pad()) / cell();
-        return i < int(std::size(kMirrorKinds)) ? i : -1;
+        return i < stripMirrorCount() ? i : -1;
     }
     void paint(draw::Canvas& c) override {
         using namespace stripLook;
@@ -520,15 +572,16 @@ struct MirrorPopoutView final : draw::View {
         c.frame({0, 0, width(), height()}, kBorderHot, 1);
         const AppState& a = appState();
         const int mask = a.ed ? a.ed->mirrors() : 0;
-        for (size_t i = 0; i < std::size(kMirrorKinds); ++i) {
-            const draw::Rect r{pad() + int(i) * cell(), pad(), pad() + int(i + 1) * cell(), pad() + cell()};
+        for (int i = 0; i < stripMirrorCount(); ++i) {
+            const draw::Rect r{pad() + i * cell(), pad(), pad() + (i + 1) * cell(), pad() + cell()};
             const int flag = kMirrorKinds[i].flag;
-            const bool on = flag ? (mask & flag) != 0 : mask == 0 && (!a.ed || a.ed->turns() == 1), over = int(i) == hot;
+            const bool on = flag ? (mask & flag) != 0 : mask == 0 && (!a.ed || a.ed->turns() == 1), over = i == hot;
             const draw::Rect sq = square(r);
             if (on) box(c, sq, kSel, kAccentLine);
             else if (over) box(c, sq, kCtlHot, kNoLine);
-            mirrorIcon(c, sq, flag, on ? kAccentBright : over ? kText : kDim, on ? kSel : kPanel);
-            if (i == 0) c.fill({r.right - 1, r.top + scale(4), r.right, r.bottom - scale(4)}, kBorder);  // (a line after No symmetry: the mirrors combine)
+            mirrorIcon(c, sq, flag, on ? kAccentBright : over ? kText : kDim, on && a.ed ? a.ed->customAxisAngle() : 25.0);
+            if (i == 0 || (i == 4 && a.mode == Mode::Terrain))
+                c.fill({r.right - 1, r.top + scale(4), r.right, r.bottom - scale(4)}, kBorder);
         }
     }
     bool hoverTip() const override { return true; }
@@ -549,6 +602,13 @@ struct MirrorPopoutView final : draw::View {
             const int i = at(e.pt);
             if (i < 0) return true;
             const int flag = kMirrorKinds[i].flag;
+            if (flag & Mirror::Custom) {
+                shellPost([this, flag] {
+                    close();
+                    editCustomSymmetry(flag);
+                });
+                return true;
+            }
             setMirrorKind(flag);
             if (!flag) shellPost([this] { close(); });  // (No symmetry: done; a mirror: the row stays for the next)
             invalidate();
@@ -575,7 +635,7 @@ void stripMirrorPopout(draw::View& from, draw::Rect button) {
     if (gMirrorPopout.open) return gMirrorPopout.close();  // (a second click on the button: it closes)
     // (the press on the button closed it already, as a press outside the pop-out does: the click only closes it)
     if (std::chrono::steady_clock::now() - gMirrorPopoutClosedAt < std::chrono::milliseconds(400)) return;
-    const int w = int(std::size(kMirrorKinds)) * MirrorPopoutView::cell() + 2 * MirrorPopoutView::pad(),
+    const int w = stripMirrorCount() * MirrorPopoutView::cell() + 2 * MirrorPopoutView::pad(),
               h = MirrorPopoutView::cell() + 2 * MirrorPopoutView::pad();
     const draw::Rect at{button.left - MirrorPopoutView::pad(), button.bottom + scale(2), button.left - MirrorPopoutView::pad() + w, button.bottom + scale(2) + h};
     gMirrorPopout.open = true;
@@ -861,8 +921,7 @@ public:
         if (stripHasMix())
             numberRow(kNumMix, L"Mix",
                       L"Mix: with several terrains or tiles selected, how Fill puts them in patches, 1 (large patches) to 10 (the smallest: each tile at random; Isometric: 2 diamonds). Click to type a number. The arrows and the mouse wheel change it.");
-        // The symmetry: one button that shows the mirrors in use together (their axes in one square); a click opens
-        // the row of No symmetry and the four mirrors (stripMirrorPopout), which combine.
+        // The button shows the active symmetry and opens the mirror choices.
         if (stripHasMirrors() && app.ed) {
             // One control: the symmetry button, a line, then the brushes (its dots and arrows), in one frame.
             const int mb = scale(28);
@@ -876,8 +935,10 @@ public:
                 c.popClip();
             }
             c.fill({br.right, br.top + 1, br.right + 1, br.bottom - 1}, kBorder);  // (the line between the two)
-            mirrorIcon(c, square(br), mask, on ? kAccentBright : over2 ? kText : kDim, on ? kSel : over2 ? kCtlHot : kCtl);
-            addHit(br, [this, br] { stripMirrorPopout(*this, br); }, tr(L"Symmetry: click to select the mirrors (Alt+0 to Alt+4)"));
+            mirrorIcon(c, square(br), mask, on ? kAccentBright : over2 ? kText : kDim, app.ed->customAxisAngle());
+            addHit(br, [this, br] { stripMirrorPopout(*this, br); },
+                   app.mode == Mode::Terrain ? tr(L"Terrain symmetry: select a mirror, a custom axis or a custom point (Alt+0 to Alt+6)")
+                                             : tr(L"Symmetry: click to select the mirrors (Alt+0 to Alt+4)"));
             spinner(kNumTurns, {br.right + 1, y, joined.right, y + mb}, L"Brushes", L"", kTurnsTip, false);
             y += mb + gap;
         }
@@ -1073,6 +1134,7 @@ private:
 
     // Typing a number: the field is placed over the value part (r) and takes the text of the number.
     void beginEdit(int which, draw::Rect r) {
+        if (which == kNumTurns) cancelSymmetryPick(appState());
         editing_ = which;
         field_.setFrame({r.left + scale(4), r.top + scale(4), r.right - scale(2), r.bottom - scale(4)});
         field_.setText(stripNumberText(which));

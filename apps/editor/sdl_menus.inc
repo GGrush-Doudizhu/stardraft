@@ -311,7 +311,7 @@ bool sdlRuns(int id) {
     if (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) return true;   // V, B, A, F
     if (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 16) return true;  // I, O, P, X, E, H, J, W, K, M, N, C, Z (Shift: filled)
     if (id == ID_TERRAIN_KIND_NEXT) return true;                   // Ctrl+Alt+T
-    if (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) return true;  // Alt+0 to Alt+4: the symmetry
+    if (id >= ID_MIRROR_KEY && id <= ID_CUSTOM_POINT) return true;  // Alt+0 to Alt+6: the symmetry
     if (id >= ID_RAIL_KEY && id < ID_RAIL_KEY + 9) return true;   // Ctrl+1 to Ctrl+9
     if (id >= ID_SNAP_UNITS && id <= ID_SNAP_LOCATIONS) return true;
     if (id >= ID_GRID_SIZE && id < ID_GRID_SIZE + int(std::size(kGridPresets))) return true;
@@ -328,7 +328,7 @@ bool simCommandEnabled(int id);  // (sdl_simulation.inc)
 bool simLocksCommand(int id) {
     return (id >= ID_EDIT_UNDO && id <= ID_EDIT_DUPLICATE) || id == ID_EDIT_HISTORY || id == ID_EDIT_SNAPGRID || (id >= ID_EDIT_ARRANGE && id < ID_EDIT_ARRANGE + 12) || id == ID_EDIT_TERRAINUNITS || id == ID_EDIT_TERRAINDOODADS ||
            (id >= ID_MODE_TERRAIN && id <= ID_MODE_SPRITES) || (id >= ID_PLAYER_1 && id < ID_PLAYER_1 + 12) || id == ID_QUICKPICK ||
-           (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 16) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id < ID_MIRROR_KEY + 5) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
+           (id >= ID_TOOL_KEY && id < ID_TOOL_KEY + 4) || (id >= ID_SHAPE_KEY && id < ID_SHAPE_KEY + 16) || id == ID_TERRAIN_KIND_NEXT || (id >= ID_TERRAIN_KIND && id < ID_TERRAIN_KIND + kTerrainKinds) || (id >= ID_MIRROR_KEY && id <= ID_CUSTOM_POINT) || id == ID_REVEAL_PLACE || id == ID_REVEAL_REMOVE || id == ID_SCEN_PLAYERS ||
            id == ID_SCEN_PROPS || id == ID_SCEN_CLASSIC || id == ID_SCEN_CLASSICTRIG || id == ID_PROJ_FROMMAP;
 }
 
@@ -643,11 +643,11 @@ void rebuildMenus() {
 void sdlCampaignFollow();  // (sdl_options.inc)
 void menusIfDirty() {
     sdlCampaignFollow();
-    // Undo, Redo and Paste follow the edits (an edit does not say that the menus changed): the menus are made again
-    // when one of them goes gray or comes back.
-    static int grayed = -1;
-    const int now = int(mapMenuGrayed(ID_EDIT_UNDO)) | int(mapMenuGrayed(ID_EDIT_REDO)) << 1 | int(mapMenuGrayed(ID_EDIT_PASTE)) << 2;
-    if (now != grayed) grayed = now, gMenusDirty = true;
+    // Edits and palette changes can update these menu items without running a menu command.
+    const int terrainSymmetry = gState.ed && gState.mode == Mode::Terrain ? gState.ed->mirrors() & Mirror::Custom : -1;
+    const auto now = std::tuple{mapMenuGrayed(ID_EDIT_UNDO), mapMenuGrayed(ID_EDIT_REDO), mapMenuGrayed(ID_EDIT_PASTE), terrainSymmetry};
+    static auto previous = now;
+    if (now != previous) previous = now, gMenusDirty = true;
     sdlNativeMenusPoll();  // (the Window menu's tabs)
     if (gMenusDirty && gRoot && gRoot->menus.openIndex() < 0) rebuildMenus();
 }

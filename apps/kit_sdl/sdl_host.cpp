@@ -191,6 +191,7 @@ SDL_SystemCursor systemCursor(Cursor c) {
     case Cursor::SizeNS: return SDL_SYSTEM_CURSOR_NS_RESIZE;
     case Cursor::No: return SDL_SYSTEM_CURSOR_NOT_ALLOWED;
     case Cursor::Wait: return SDL_SYSTEM_CURSOR_WAIT;
+    case Cursor::Crosshair: return SDL_SYSTEM_CURSOR_CROSSHAIR;
     case Cursor::SizeNWSE: return SDL_SYSTEM_CURSOR_NWSE_RESIZE;
     case Cursor::SizeNESW: return SDL_SYSTEM_CURSOR_NESW_RESIZE;
     default: return SDL_SYSTEM_CURSOR_DEFAULT;

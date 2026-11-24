@@ -3741,3 +3741,17 @@ brightest	最亮
 Keep recolor preview	保留重新着色预览
 The map shows the recolor also when this window is closed	关闭此窗口后地图仍显示重新着色
 One stop, every value 1, time 0 (no change of the colors)	一个色标，所有值为 1，时间 0（颜色不变）
+Custom mirror axis	自定义对称轴
+Custom symmetry point	自定义对称点
+Angle from right	从正右方起算
+° clockwise	° 顺时针
+Terrain symmetry: select a mirror, a custom axis or a custom point (Alt+0 to Alt+6)	地形对称：选择预设镜像、自定义对称轴或自定义对称点 (Alt+0 至 Alt+6)
+Custom mirror &axis…	自定义对称轴(&A)…
+Custom symmetry &point…	自定义对称点(&P)…
+Select on map	在地图上指定
+Click the first point on the mirror axis. Esc cancels.	单击对称轴上的第一个点。按 Esc 取消。
+Click a different point on the mirror axis. Esc cancels.	再单击对称轴上的另一个点。按 Esc 取消。
+Click the symmetry point on the map. Esc cancels.	单击地图上的位置以指定对称点。按 Esc 取消。
+Mirror axis set	已设置对称轴
+Symmetry point set	已设置对称点
+Canceled symmetry placement	已取消对称设置

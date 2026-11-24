@@ -170,6 +170,13 @@ std::string shotMapState() {
     if (gLocPropsShown) s += " locprops=" + quoted(narrow(gLocPropsShown->typeText())) + " locedges=" + narrow(gLocPropsShown->edgesText());
     float wx = 0, wy = 0;
     toWorld(app.mouseX, app.mouseY, wx, wy);
+    if (app.mode == Mode::Terrain) {
+        const auto [cx, cy] = ed.symmetryCenter();
+        s += " symmetry=" + std::to_string(ed.mirrors()) + "," + std::to_string(cx) + "," + std::to_string(cy) + "," + std::to_string(ed.customAxisAngle());
+        s += " worldpx=" + std::to_string(int(wx)) + "," + std::to_string(int(wy)) + " terrainundo=" + std::to_string(ed.undoSteps());
+        s += " sympick=" + std::to_string(app.symmetryPick) + "/";
+        s += app.symmetryPickFirst ? std::to_string(app.symmetryPickFirst->first) + "," + std::to_string(app.symmetryPickFirst->second) : "-";
+    }
     // The units under the mouse (a stack: the status bar's count), and the places in it of the selected units (1: the top).
     {
         const std::vector<int> stack = ed.unitsAt(int(wx), int(wy));

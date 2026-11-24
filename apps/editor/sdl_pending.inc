@@ -30,6 +30,7 @@ void setWorkspace(Workspace w) {
     }
     // A map page: its view shows (made from the tab's working copy); another workspace: the page goes (the copy stays).
     if (!sdlWorkspacePage(w) && (w == Workspace::Properties || w == Workspace::Players || w == Workspace::ClassicSettings || w == Workspace::ClassicTriggers)) w = Workspace::Map;
+    if (w != Workspace::Map) cancelSymmetryPick(gState);
     gWorkspace = w;
     // The pages that play sounds: the device opens now, so the first sound starts at once (a Bluetooth headset's
     // link takes a moment to wake up when sound begins).

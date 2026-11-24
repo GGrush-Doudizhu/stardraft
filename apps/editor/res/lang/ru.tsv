@@ -3741,3 +3741,17 @@ brightest	самые светлые
 Keep recolor preview	Оставить предпросмотр перекраски
 The map shows the recolor also when this window is closed	Карта показывает перекраску и при закрытом окне
 One stop, every value 1, time 0 (no change of the colors)	Одна точка, все значения 1, время 0 (цвета без изменений)
+Custom mirror axis	Своя ось симметрии
+Custom symmetry point	Свой центр симметрии
+Angle from right	Угол от горизонтали
+° clockwise	° по часовой
+Terrain symmetry: select a mirror, a custom axis or a custom point (Alt+0 to Alt+6)	Симметрия рельефа: выберите отражение, свою ось или свой центр симметрии (Alt+0 — Alt+6)
+Custom mirror &axis…	Своя &ось симметрии…
+Custom symmetry &point…	Свой &центр симметрии…
+Select on map	Указать на карте
+Click the first point on the mirror axis. Esc cancels.	Щёлкните первую точку оси симметрии. Esc — отмена.
+Click a different point on the mirror axis. Esc cancels.	Щёлкните другую точку оси симметрии. Esc — отмена.
+Click the symmetry point on the map. Esc cancels.	Щёлкните центр симметрии на карте. Esc — отмена.
+Mirror axis set	Ось симметрии задана
+Symmetry point set	Центр симметрии задан
+Canceled symmetry placement	Задание симметрии отменено

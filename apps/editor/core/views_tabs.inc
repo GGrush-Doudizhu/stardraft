@@ -75,6 +75,7 @@ void stashActive() {
     AppState& app = shellState();
     if (gActive < 0 || gActive >= int(gDocs.size()) || !app.ed) return;
     typingFlush();  // a text being typed goes into this tab's map before the tab goes to the back
+    cancelSymmetryPick(app);
     mapPageClose();
     Doc& d = gDocs[size_t(gActive)];
     d.workspace = gWorkspace;

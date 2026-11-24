@@ -3740,6 +3740,20 @@ constexpr UiText kRows[] = {
     {L"Keep recolor preview", L"Umf\u00E4rbungsvorschau behalten"},
     {L"The map shows the recolor also when this window is closed", L"Die Karte zeigt die Umf\u00E4rbung auch bei geschlossenem Fenster"},
     {L"One stop, every value 1, time 0 (no change of the colors)", L"Ein Stopp, alle Werte 1, Zeit 0 (keine Farb\u00E4nderung)"},
+    {L"Custom mirror axis", L"Eigene Spiegelachse"},
+    {L"Custom symmetry point", L"Eigener Symmetriepunkt"},
+    {L"Angle from right", L"Winkel ab rechts"},
+    {L"\u00B0 clockwise", L"\u00B0 im Uhrz."},
+    {L"Terrain symmetry: select a mirror, a custom axis or a custom point (Alt+0 to Alt+6)", L"Gel\u00E4ndesymmetrie: Spiegelung, eigene Achse oder eigenen Punkt w\u00E4hlen (Alt+0 bis Alt+6)"},
+    {L"Custom mirror &axis\u2026", L"Eigene Spiegel&achse\u2026"},
+    {L"Custom symmetry &point\u2026", L"Eigener Symmetrie&punkt\u2026"},
+    {L"Select on map", L"Auf Karte w\u00E4hlen"},
+    {L"Click the first point on the mirror axis. Esc cancels.", L"Klicke auf den ersten Punkt der Spiegelachse. Esc bricht ab."},
+    {L"Click a different point on the mirror axis. Esc cancels.", L"Klicke auf einen anderen Punkt der Spiegelachse. Esc bricht ab."},
+    {L"Click the symmetry point on the map. Esc cancels.", L"Klicke auf den Symmetriepunkt auf der Karte. Esc bricht ab."},
+    {L"Mirror axis set", L"Spiegelachse gesetzt"},
+    {L"Symmetry point set", L"Symmetriepunkt gesetzt"},
+    {L"Canceled symmetry placement", L"Festlegen der Symmetrie abgebrochen"},
 };
 }  // namespace
 std::span<const UiText> langTableDe() { return kRows; }

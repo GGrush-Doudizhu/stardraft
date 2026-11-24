@@ -3769,3 +3769,17 @@ brightest	가장 밝음
 Keep recolor preview	리컬러 미리보기 유지
 The map shows the recolor also when this window is closed	이 창을 닫아도 맵에 리컬러를 표시
 One stop, every value 1, time 0 (no change of the colors)	정지점 하나, 모든 값 1, 시간 0 (색 변화 없음)
+Custom mirror axis	사용자 지정 대칭축
+Custom symmetry point	사용자 지정 대칭점
+Angle from right	오른쪽 기준 각도
+° clockwise	° 시계 방향
+Terrain symmetry: select a mirror, a custom axis or a custom point (Alt+0 to Alt+6)	지형 대칭: 기본 대칭, 사용자 지정 대칭축 또는 대칭점을 선택합니다 (Alt+0~Alt+6)
+Custom mirror &axis…	사용자 지정 대칭축(&A)…
+Custom symmetry &point…	사용자 지정 대칭점(&P)…
+Select on map	지도에서 지정
+Click the first point on the mirror axis. Esc cancels.	대칭축의 첫 번째 점을 클릭하세요. Esc를 누르면 취소됩니다.
+Click a different point on the mirror axis. Esc cancels.	대칭축의 다른 점을 클릭하세요. Esc를 누르면 취소됩니다.
+Click the symmetry point on the map. Esc cancels.	지도에서 대칭점을 클릭하세요. Esc를 누르면 취소됩니다.
+Mirror axis set	대칭축을 지정했습니다
+Symmetry point set	대칭점을 지정했습니다
+Canceled symmetry placement	대칭 설정을 취소했습니다

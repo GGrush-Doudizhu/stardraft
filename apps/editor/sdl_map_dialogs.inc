@@ -219,6 +219,10 @@ std::vector<kit::MenuItem> mapMenuKit(const MenuModel& items) {
 // mirrors or turns): its menu, with each tool.
 void mapRightClickSdl(draw::View& map, draw::Point at) {
     if (!gState.ed || !gState.ed->isOpen() || gState.drag != Drag::None) return;
+    if (gState.symmetryPickDone) {
+        if (gState.symmetryPick) finishSymmetryPick(gState, std::nullopt);
+        return;
+    }
     if (trigUnitPickActive()) return trigCancelUnitPick();  // (cancelStep: a unit pick for a trigger stops first)
     float wx, wy;
     toWorld(at.x, at.y, wx, wy);

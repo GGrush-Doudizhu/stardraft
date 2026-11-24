@@ -3740,6 +3740,20 @@ constexpr UiText kRows[] = {
     {L"Keep recolor preview", L"Manter a pr\u00E9-visualiza\u00E7\u00E3o da recolora\u00E7\u00E3o"},
     {L"The map shows the recolor also when this window is closed", L"O mapa mostra a recolora\u00E7\u00E3o tamb\u00E9m com esta janela fechada"},
     {L"One stop, every value 1, time 0 (no change of the colors)", L"Uma parada, todos os valores 1, tempo 0 (cores sem mudan\u00E7a)"},
+    {L"Custom mirror axis", L"Eixo de simetria personalizado"},
+    {L"Custom symmetry point", L"Centro de simetria personalizado"},
+    {L"Angle from right", L"A partir da direita"},
+    {L"\u00B0 clockwise", L"\u00B0 hor\u00E1rio"},
+    {L"Terrain symmetry: select a mirror, a custom axis or a custom point (Alt+0 to Alt+6)", L"Simetria do terreno: selecione um espelho, um eixo personalizado ou um centro personalizado (Alt+0 a Alt+6)"},
+    {L"Custom mirror &axis\u2026", L"&Eixo de simetria personalizado\u2026"},
+    {L"Custom symmetry &point\u2026", L"Centro de simetria &personalizado\u2026"},
+    {L"Select on map", L"Escolher no mapa"},
+    {L"Click the first point on the mirror axis. Esc cancels.", L"Clique no primeiro ponto do eixo de simetria. Esc cancela."},
+    {L"Click a different point on the mirror axis. Esc cancels.", L"Clique em outro ponto do eixo de simetria. Esc cancela."},
+    {L"Click the symmetry point on the map. Esc cancels.", L"Clique no centro de simetria no mapa. Esc cancela."},
+    {L"Mirror axis set", L"Eixo de simetria definido"},
+    {L"Symmetry point set", L"Centro de simetria definido"},
+    {L"Canceled symmetry placement", L"Defini\u00E7\u00E3o da simetria cancelada"},
 };
 }  // namespace
 std::span<const UiText> langTablePt() { return kRows; }

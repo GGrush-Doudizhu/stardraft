@@ -865,11 +865,21 @@ render::Scene buildScene() {
     if (gRangeKinds && app.mode == Mode::Units) rangesScene(s, moveDX, moveDY);  // (they follow a unit being moved)
 
     // Symmetry axes.
-    if (const int mm = ed.mirrors(); mm || ed.turns() > 1) {
+    if (const int mm = ed.mirrors(); app.symmetryPick || mm || ed.turns() > 1) {
         float W = ed.width() * 32.0f, H = ed.height() * 32.0f, t = 1.5f / app.zoom;
-        const auto anchors = ed.symmetryAnchors();
-        const int hovered = app.drag == Drag::SymmetryCenter ? gSymmetryDragged
-                            : app.mouseIn && app.drag == Drag::None ? symmetryHandleIndex(app, app.mouseX, app.mouseY) : -1;
+        std::vector<std::pair<int, int>> anchors;
+        int hovered = -1;
+        if (app.symmetryPick) {
+            if (app.symmetryPickFirst) anchors.push_back(*app.symmetryPickFirst);
+            if (const auto p = app.mouseIn ? symmetryPickPoint(ed, wx, wy) : std::nullopt) {
+                if (anchors.empty() || anchors.front() != *p) anchors.push_back(*p);
+                hovered = int(anchors.size()) - 1;
+            }
+        } else {
+            anchors = ed.symmetryAnchors();
+            hovered = app.drag == Drag::SymmetryCenter ? gSymmetryDragged
+                      : app.mouseIn && app.drag == Drag::None ? symmetryHandleIndex(app, app.mouseX, app.mouseY) : -1;
+        }
         // A dragged anchor on another one: they merge when the mouse button is released (green: the handle shows it).
         const bool merging = app.drag == Drag::SymmetryCenter && hovered >= 0 && hovered < int(anchors.size()) &&
                              std::count(anchors.begin(), anchors.end(), anchors[size_t(hovered)]) > 1;
@@ -886,18 +896,35 @@ render::Scene buildScene() {
             uint32_t c = main ? 0x80C0FF90u : 0x80C0FF40u;
             auto vline = [&] { s.rects.push_back({cx - t, 0, cx + t, H, c, true}); };
             auto hline = [&] { s.rects.push_back({0, cy - t, W, cy + t, c, true}); };
-            auto diag = [&](bool anti) {  // (one line, cut at the map's edges)
-                const float f0 = std::max(-cx / W, anti ? (cy - H) / H : -cy / H), f1 = std::min((W - cx) / W, anti ? cy / H : (H - cy) / H);
-                if (f0 >= f1) return;
+            auto axis = [&](double dx, double dy) {
+                // Intersect the line through this anchor with both pairs of map edges.
+                double lo = -INFINITY, hi = INFINITY;
+                auto clip = [&](double center, double extent, double direction) {
+                    if (std::abs(direction) < 1e-12) return;
+                    const double a = -center / direction, b = (extent - center) / direction;
+                    lo = std::max(lo, std::min(a, b)), hi = std::min(hi, std::max(a, b));
+                };
+                clip(cx, W, dx), clip(cy, H, dy);
+                if (lo >= hi) return;
                 render::RectDraw l;
-                l.x0 = cx + f0 * W, l.y0 = anti ? cy - f0 * H : cy + f0 * H, l.x1 = cx + f1 * W, l.y1 = anti ? cy - f1 * H : cy + f1 * H;
+                l.x0 = float(cx + lo * dx), l.y0 = float(cy + lo * dy);
+                l.x1 = float(cx + hi * dx), l.y1 = float(cy + hi * dy);
                 l.rgba = c, l.thickness = 3, l.line = true;
                 s.rects.push_back(l);
             };
-            if (mm & Mirror::LeftRight) vline();
-            if (mm & Mirror::TopBottom) hline();
-            if (mm & Mirror::Diagonal) diag(false);
-            if (mm & Mirror::AntiDiagonal) diag(true);
+            if (app.symmetryPick) {
+                if (main && app.symmetryPick == Mirror::CustomAxis && anchors.size() == 2)
+                    axis(anchors[1].first - cx, anchors[1].second - cy);
+            } else {
+                if (mm & Mirror::LeftRight) vline();
+                if (mm & Mirror::TopBottom) hline();
+                if (mm & Mirror::Diagonal) axis(W, H);
+                if (mm & Mirror::AntiDiagonal) axis(W, -H);
+                if (mm == Mirror::CustomAxis) {
+                    const double radians = ed.customAxisAngle() * (3.141592653589793 / 180);
+                    axis(std::cos(radians), std::sin(radians));
+                }
+            }
             auto line = [&](float x0, float y0, float x1, float y1, uint32_t rgba) {
                 render::RectDraw l;
                 l.x0 = x0, l.y0 = y0, l.x1 = x1, l.y1 = y1, l.rgba = rgba, l.thickness = 2, l.line = true;
@@ -927,6 +954,7 @@ render::Scene buildScene() {
                 line(cx - r * 0.6f, cy, cx + r * 0.6f, cy, hc), line(cx, cy - r * 0.6f, cx, cy + r * 0.6f, hc);
             }
         }
+        if (app.symmetryPick) return s;  // the pointer marks the next point on the map
     }
 
     if (!app.mouseIn) {  // (on a menu or a panel: the selected sprites and doodads keep their boxes, as the units do)
@@ -1110,8 +1138,6 @@ render::Scene buildScene() {
         tilesScene(s, wx, wy);
     } else if (app.mode == Mode::Terrain && currentTool() == TSelect) {
         if (app.terrainPasting && ed.hasTerrainClipboard()) {
-            Rect b = ed.terrainClipboardBox();
-            const auto pts = ed.symmetricPoints(int(wx), int(wy));
             const auto corners = ed.terrainPasteCorners(int(wx), int(wy));
             // (the pasted terrain itself, as the map would have it: the paste on a copy of the map, its changed tiles
             // over the terrain; made again only when the paste's place, the map or the copy changes; GitHub #238)
@@ -1126,10 +1152,10 @@ render::Scene buildScene() {
                 std::chrono::steady_clock::time_point last{};
             };
             static PasteGhost g;
-            std::vector<int64_t> key = {int64_t(reinterpret_cast<uintptr_t>(&ed)), int64_t(ed.revision()), int64_t(gTerrainCopyRevision), int64_t(app.correction),
-                                        int64_t(corners.size())};
-            if (!corners.empty()) key.push_back(corners.front().first), key.push_back(corners.front().second);
-            for (const auto& [px, py] : pts) key.push_back(px / 64), key.push_back(py / 32);
+            std::vector<int64_t> key = {int64_t(reinterpret_cast<uintptr_t>(&ed)), int64_t(ed.revision()), int64_t(gTerrainCopyRevision), int64_t(app.correction)};
+            for (const auto& p : ed.terrainPasteOrigins(int(wx), int(wy))) {
+                key.push_back(p.x), key.push_back(p.y), key.push_back(p.flipX), key.push_back(p.flipY);
+            }
             const auto now = std::chrono::steady_clock::now();
             const bool soon = g.cost > 12 && std::chrono::duration<double, std::milli>(now - g.last).count() < 2 * g.cost;
             if (g.key != key && soon) appState().dirty = true;  // (again on a later frame)

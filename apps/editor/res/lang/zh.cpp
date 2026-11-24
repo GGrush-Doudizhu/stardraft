@@ -3740,6 +3740,20 @@ constexpr UiText kRows[] = {
     {L"Keep recolor preview", L"\u4FDD\u7559\u91CD\u65B0\u7740\u8272\u9884\u89C8"},
     {L"The map shows the recolor also when this window is closed", L"\u5173\u95ED\u6B64\u7A97\u53E3\u540E\u5730\u56FE\u4ECD\u663E\u793A\u91CD\u65B0\u7740\u8272"},
     {L"One stop, every value 1, time 0 (no change of the colors)", L"\u4E00\u4E2A\u8272\u6807\uFF0C\u6240\u6709\u503C\u4E3A 1\uFF0C\u65F6\u95F4 0\uFF08\u989C\u8272\u4E0D\u53D8\uFF09"},
+    {L"Custom mirror axis", L"\u81EA\u5B9A\u4E49\u5BF9\u79F0\u8F74"},
+    {L"Custom symmetry point", L"\u81EA\u5B9A\u4E49\u5BF9\u79F0\u70B9"},
+    {L"Angle from right", L"\u4ECE\u6B63\u53F3\u65B9\u8D77\u7B97"},
+    {L"\u00B0 clockwise", L"\u00B0 \u987A\u65F6\u9488"},
+    {L"Terrain symmetry: select a mirror, a custom axis or a custom point (Alt+0 to Alt+6)", L"\u5730\u5F62\u5BF9\u79F0\uFF1A\u9009\u62E9\u9884\u8BBE\u955C\u50CF\u3001\u81EA\u5B9A\u4E49\u5BF9\u79F0\u8F74\u6216\u81EA\u5B9A\u4E49\u5BF9\u79F0\u70B9 (Alt+0 \u81F3 Alt+6)"},
+    {L"Custom mirror &axis\u2026", L"\u81EA\u5B9A\u4E49\u5BF9\u79F0\u8F74(&A)\u2026"},
+    {L"Custom symmetry &point\u2026", L"\u81EA\u5B9A\u4E49\u5BF9\u79F0\u70B9(&P)\u2026"},
+    {L"Select on map", L"\u5728\u5730\u56FE\u4E0A\u6307\u5B9A"},
+    {L"Click the first point on the mirror axis. Esc cancels.", L"\u5355\u51FB\u5BF9\u79F0\u8F74\u4E0A\u7684\u7B2C\u4E00\u4E2A\u70B9\u3002\u6309 Esc \u53D6\u6D88\u3002"},
+    {L"Click a different point on the mirror axis. Esc cancels.", L"\u518D\u5355\u51FB\u5BF9\u79F0\u8F74\u4E0A\u7684\u53E6\u4E00\u4E2A\u70B9\u3002\u6309 Esc \u53D6\u6D88\u3002"},
+    {L"Click the symmetry point on the map. Esc cancels.", L"\u5355\u51FB\u5730\u56FE\u4E0A\u7684\u4F4D\u7F6E\u4EE5\u6307\u5B9A\u5BF9\u79F0\u70B9\u3002\u6309 Esc \u53D6\u6D88\u3002"},
+    {L"Mirror axis set", L"\u5DF2\u8BBE\u7F6E\u5BF9\u79F0\u8F74"},
+    {L"Symmetry point set", L"\u5DF2\u8BBE\u7F6E\u5BF9\u79F0\u70B9"},
+    {L"Canceled symmetry placement", L"\u5DF2\u53D6\u6D88\u5BF9\u79F0\u8BBE\u7F6E"},
 };
 }  // namespace
 std::span<const UiText> langTableZh() { return kRows; }

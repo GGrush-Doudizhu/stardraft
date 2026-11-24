@@ -350,6 +350,9 @@ MenuModel buildMenuModel() {
     MenuModel layerCommands;
     menuCommands(layerCommands, "Mode/Layer");
     terrainTools.insert(terrainTools.end() - 1, menuSeparator());  // (before Next)
+    terrainTools.push_back(menuSeparator());
+    terrainTools.push_back(menuItem(ID_CUSTOM_AXIS, L"Custom mirror &axis\x2026", L"Alt+5"));
+    terrainTools.push_back(menuItem(ID_CUSTOM_POINT, L"Custom symmetry &point\x2026", L"Alt+6"));
     mode.push_back(menuSeparator());
     mode.push_back(menuPopup(L"Te&rrain tools", terrainTools));
     mode.push_back(menuPopup(L"La&yer", layerCommands));
